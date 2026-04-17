@@ -11,121 +11,132 @@
     :root {
       --gold: #d4af37;
       --gold-light: #f0e68c;
-      --bg-dark: #0f1419;
-      --card-bg: rgba(26, 40, 71, 0.6);
+      --bg-dark: #0b0f13;
+      --card-bg: rgba(26, 40, 71, 0.45);
       --glass: rgba(255, 255, 255, 0.03);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     
     body { 
-      background: radial-gradient(circle at top, #1a2847 0%, #0f1419 100%);
+      background: radial-gradient(circle at top, #1a2847 0%, #0b0f13 100%);
       color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
       overflow-x: hidden;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    .app-wrapper { padding: 16px; max-width: 500px; margin: 0 auto; }
+    .app-wrapper { padding: 16px; max-width: 500px; margin: 0 auto; width: 100%; flex: 1; }
 
     /* Header */
     .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-top: 8px; }
+    .logo-box {
+      display: flex; align-items: center; gap: 10px;
+    }
     .logo-circle {
-      width: 50px; height: 50px; border-radius: 16px;
+      width: 44px; height: 44px; border-radius: 12px;
       background: linear-gradient(135deg, #1a3a52 0%, #2d5a7b 100%);
       border: 1.5px solid var(--gold);
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px; font-weight: 800; color: var(--gold);
-      box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+      font-size: 18px; font-weight: 800; color: var(--gold);
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
     }
     
     .connect-btn {
       background: var(--glass); border: 1px solid rgba(212, 175, 55, 0.3);
-      color: var(--gold); padding: 10px 18px; border-radius: 12px;
+      color: var(--gold); padding: 8px 16px; border-radius: 10px;
       font-size: 13px; font-weight: 600; cursor: pointer; backdrop-filter: blur(10px);
       transition: all 0.2s;
     }
 
     /* Main Balance Card */
     .balance-section {
-      background: linear-gradient(180deg, rgba(45, 90, 123, 0.3) 0%, rgba(26, 40, 71, 0.6) 100%);
-      border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 28px;
-      padding: 32px 20px; text-align: center; margin-bottom: 20px;
-      backdrop-filter: blur(12px); box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      background: linear-gradient(180deg, rgba(45, 90, 123, 0.2) 0%, rgba(26, 40, 71, 0.4) 100%);
+      border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 28px;
+      padding: 30px 20px; text-align: center; margin-bottom: 20px;
+      backdrop-filter: blur(15px); box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      position: relative;
     }
-    .balance-label { color: #a8a8a8; font-size: 12px; letter-spacing: 2px; font-weight: 600; }
-    .balance-value { font-size: 52px; font-weight: 800; color: var(--gold); margin: 8px 0; text-shadow: 0 0 20px rgba(212, 175, 55, 0.3); }
+    .balance-label { color: #7a8a9a; font-size: 11px; letter-spacing: 2px; font-weight: 700; margin-bottom: 5px; }
+    .balance-value { font-size: 48px; font-weight: 800; color: var(--gold); margin: 5px 0; text-shadow: 0 0 15px rgba(212, 175, 55, 0.3); }
 
-    /* Buttons */
+    /* Mining Button - Fixed scaling */
     .tap-btn {
-      width: 100%; padding: 20px; border: none; border-radius: 18px;
-      font-size: 18px; font-weight: 800; cursor: pointer;
+      width: 100%; padding: 18px; border: none; border-radius: 16px;
+      font-size: 17px; font-weight: 800; cursor: pointer;
       background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
-      color: #1a2847; transition: transform 0.1s, box-shadow 0.2s;
-      box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
-      margin-top: 10px;
+      color: #1a2847; transition: transform 0.05s;
+      box-shadow: 0 8px 20px rgba(212, 175, 55, 0.25);
+      margin-top: 15px;
     }
-    .tap-btn:active { transform: scale(0.96); }
-    .tap-btn:disabled { opacity: 0.5; filter: grayscale(1); }
+    .tap-btn:active { transform: scale(0.97); }
+    .tap-btn:disabled { opacity: 0.4; filter: grayscale(1); pointer-events: none; }
 
-    .secondary-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .secondary-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
     .action-btn {
-      padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1);
-      background: var(--glass); color: #fff; font-size: 14px; font-weight: 600;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03); color: #fff; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
     }
     .action-btn.active { background: #00ff64; color: #000; border: none; }
-    .action-btn:disabled { opacity: 0.3; }
+    .action-btn:disabled { opacity: 0.2; cursor: not-allowed; }
 
     /* Stats Grid */
-    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-    .small-card { background: var(--card-bg); border-radius: 18px; padding: 14px; border: 1px solid rgba(255,255,255,0.05); }
-    .small-card label { display: block; font-size: 10px; color: #7a8a9a; text-transform: uppercase; margin-bottom: 4px; }
-    .small-card span { font-size: 18px; font-weight: 700; color: var(--gold); }
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .small-card { background: var(--card-bg); border-radius: 16px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .small-card label { display: block; font-size: 10px; color: #7a8a9a; font-weight: 600; margin-bottom: 2px; }
+    .small-card span { font-size: 17px; font-weight: 700; color: #fff; }
 
     /* Referral Card */
-    .card { background: var(--card-bg); border-radius: 24px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
-    .card-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--gold); }
+    .card { background: var(--card-bg); border-radius: 20px; padding: 18px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gold); }
     
-    .ref-box {
-      background: rgba(0,0,0,0.3); padding: 16px; border-radius: 14px;
-      margin-top: 12px; border: 1px dashed rgba(212, 175, 55, 0.4);
-    }
     .ref-reward-tag {
-      background: rgba(212, 175, 55, 0.15); color: var(--gold);
-      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+      background: rgba(212, 175, 55, 0.12); color: var(--gold);
+      padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 700;
       margin-bottom: 10px; display: inline-block;
     }
 
+    .invite-btn {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      background: #24A1DE; color: white; display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 4px 12px rgba(36, 161, 222, 0.25); margin-top: 10px;
+    }
+
     /* Footer / Links */
-    .footer-links { text-align: center; padding: 20px 0; }
+    .footer-links { text-align: center; padding: 20px 0; margin-top: auto; }
     .tonviewer-link { 
-      color: #555; font-size: 11px; text-decoration: none; 
+      color: #444; font-size: 11px; text-decoration: none; 
       display: inline-flex; align-items: center; gap: 4px; 
-      transition: color 0.2s;
     }
     .tonviewer-link:hover { color: var(--gold); }
 
     /* Progress & Animation */
-    .progress-wrap { height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; margin: 16px 0 8px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #00ff64; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px rgba(0,255,100,0.4); }
+    .progress-wrap { height: 6px; background: rgba(0,0,0,0.3); border-radius: 10px; margin: 16px 0 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #00ff64; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px rgba(0,255,100,0.2); }
     
     .float-text {
-      position: absolute; color: var(--gold); font-weight: 900; font-size: 28px;
-      pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 100;
-      text-shadow: 0 0 10px rgba(0,0,0,0.5);
+      position: absolute; color: var(--gold); font-weight: 900; font-size: 26px;
+      pointer-events: none; animation: floatUp 0.7s ease-out forwards; z-index: 100;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.4);
     }
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-120px) scale(1.4); }
+      100% { opacity: 0; transform: translateY(-80px) scale(1.3); }
     }
 
     #notification {
-      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-      background: var(--gold); color: #1a2847; padding: 14px 28px;
-      border-radius: 20px; font-weight: 700; z-index: 2000;
-      display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 14px;
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--gold); color: #000; padding: 12px 24px;
+      border-radius: 50px; font-weight: 700; z-index: 2000;
+      display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 13px;
     }
+    
+    .animate-spin { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -134,79 +145,72 @@
 
 <div class="app-wrapper">
   
-  <!-- Header -->
   <header class="header-top">
-    <div class="logo-circle">LGC</div>
-    <button class="connect-btn" id="headerConnectBtn">Connect Wallet</button>
+    <div class="logo-box">
+        <div class="logo-circle">LGC</div>
+        <div style="font-size: 12px; color: #a8a8a8; font-weight: 600;">LGC Miner</div>
+    </div>
+    <button class="connect-btn" id="headerConnectBtn">Connect</button>
   </header>
 
-  <!-- Balance Section -->
   <section class="balance-section" id="balanceArea">
-    <p class="balance-label">TOTAL STOCKPILE</p>
+    <p class="balance-label">MINING BALANCE</p>
     <h1 class="balance-value" id="balanceDisplay">0</h1>
     
     <div class="progress-wrap">
-      <div class="progress-fill" id="withdrawProgress"></div>
+      <div id="withdrawProgress" class="progress-fill"></div>
     </div>
     <p id="minLabel" style="font-size: 11px; color: #7a8a9a;">Goal: 150,000 LGC for claim</p>
 
-    <button id="tapBtn" class="tap-btn">TAP TO MINE</button>
+    <button id="tapBtn" class="tap-btn">START MINING</button>
     
     <div class="secondary-btns">
       <button class="action-btn" id="syncBtn">
-        <i data-lucide="refresh-cw" style="width:16px;"></i> Sync
+        <i data-lucide="refresh-cw" style="width:14px;"></i> Sync Progress
       </button>
       <button class="action-btn" id="claimBtn" disabled>
-        <i data-lucide="external-link" style="width:16px;"></i> Claim
+        <i data-lucide="external-link" style="width:14px;"></i> Claim LGC
       </button>
     </div>
   </section>
 
-  <!-- Stats Grid -->
   <div class="stats-row">
     <div class="small-card">
       <label>Today's Taps</label>
       <span id="todayTaps">0</span>
     </div>
     <div class="small-card">
-      <label>Energy</label>
+      <label>Energy Left</label>
       <span id="stockpile">50,000</span>
     </div>
   </div>
 
-  <!-- Referrals -->
   <div class="card">
-    <div class="card-title"><i data-lucide="users" style="width:18px;"></i> Referral Program</div>
-    <div class="ref-reward-tag">🎁 2,000 LGC + 10% of their earnings</div>
-    <p style="font-size: 13px; color: #a8a8a8; line-height: 1.4;">Invite friends via Telegram to boost your mining speed and earn permanent commissions.</p>
+    <div class="card-title"><i data-lucide="share-2" style="width:16px;"></i> Referral Link</div>
+    <div class="ref-reward-tag">🎁 2,000 LGC + 10% Lifetime Bonus</div>
+    <p style="font-size: 12px; color: #888; line-height: 1.4;">Invite friends to join the LGC mining farm. Bonuses are added instantly upon their first sync.</p>
     
-    <div id="refActionArea">
-      <button id="inviteBtn" class="tap-btn" style="background: #24A1DE; color: white; box-shadow: 0 4px 15px rgba(36, 161, 222, 0.3); margin-top: 15px;">
-        <i data-lucide="send" style="width:18px; display:inline; vertical-align:middle; margin-right:8px;"></i> INVITE ON TELEGRAM
-      </button>
-    </div>
+    <button id="inviteBtn" class="invite-btn">
+      <i data-lucide="send" style="width:18px;"></i> INVITE VIA TELEGRAM
+    </button>
   </div>
 
-  <!-- Leaderboard Preview -->
   <div class="card">
-    <div class="card-title"><i data-lucide="trophy" style="width:18px;"></i> Top Miners</div>
+    <div class="card-title"><i data-lucide="award" style="width:16px;"></i> Top Miners</div>
     <div id="leaderboardList" style="font-size: 13px;">
-      <div style="text-align:center; color:#555; padding:10px; font-style: italic;">Loading data...</div>
+      <div style="text-align:center; color:#444; padding:15px; font-style: italic;">Syncing leaderboard...</div>
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="footer-links">
     <a href="https://tonviewer.com/EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej" target="_blank" class="tonviewer-link">
-      <i data-lucide="database" style="width:12px;"></i> View Contract on Tonviewer
+      <i data-lucide="shield-check" style="width:12px;"></i> Verified Contract: Tonviewer
     </a>
-    <p style="color: #333; font-size: 10px; margin-top: 10px;">LGC Miner v1.2.0 • Decentralized Farming</p>
   </footer>
 
 </div>
 
 <script>
-  // --- Configuration ---
   const CONFIG = {
     DAILY_LIMIT: 24000,
     MAX_ENERGY: 50000,
@@ -214,7 +218,6 @@
     PER_TAP: 20,
     MIN_WITHDRAW: 150000,
     REF_BONUS: 2000,
-    REF_COMMISSION: 0.1,
     TG_BOT_URL: "https://t.me/LGCMinerBot"
   };
 
@@ -222,15 +225,11 @@
     balance: 0,
     todayTaps: 0,
     energy: 50000,
-    wallet: null,
-    isFirstTime: true
+    wallet: null
   };
 
-  const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-    manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json',
-  });
+  let tonConnectUI;
 
-  // --- Core Functions ---
   function notify(msg) {
     const el = document.getElementById('notification');
     el.textContent = msg;
@@ -243,11 +242,10 @@
     document.getElementById('todayTaps').textContent = state.todayTaps.toLocaleString();
     document.getElementById('stockpile').textContent = state.energy.toLocaleString();
     
-    // Progress
     const progress = Math.min(100, (state.balance / CONFIG.MIN_WITHDRAW) * 100);
-    document.getElementById('withdrawProgress').style.width = `${progress}%`;
+    const progressEl = document.getElementById('withdrawProgress');
+    if (progressEl) progressEl.style.width = `${progress}%`;
     
-    // Buttons
     const claimBtn = document.getElementById('claimBtn');
     const minLabel = document.getElementById('minLabel');
     
@@ -266,6 +264,23 @@
     document.getElementById('tapBtn').disabled = state.energy <= 0 || state.todayTaps >= CONFIG.DAILY_LIMIT;
   }
 
+  function spawnFloatText(e) {
+    if (!e) return;
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    if (!x || !y) return;
+
+    const float = document.createElement('div');
+    float.className = 'float-text';
+    float.textContent = `+${CONFIG.PER_TAP}`;
+    float.style.left = `${x - 15}px`;
+    float.style.top = `${y - 40}px`;
+    float.style.position = 'fixed';
+    document.body.appendChild(float);
+    setTimeout(() => float.remove(), 700);
+  }
+
   function handleTap(e) {
     if (state.energy <= 0 || state.todayTaps >= CONFIG.DAILY_LIMIT) return;
 
@@ -273,20 +288,7 @@
     state.todayTaps++;
     state.balance += CONFIG.PER_TAP;
 
-    // Visual feedback
-    const rect = e.target.getBoundingClientRect();
-    const x = e.clientX || (rect.left + rect.width / 2);
-    const y = e.clientY || (rect.top + 10);
-    
-    const float = document.createElement('div');
-    float.className = 'float-text';
-    float.textContent = `+${CONFIG.PER_TAP}`;
-    float.style.left = `${x - 20}px`;
-    float.style.top = `${y - 40}px`;
-    float.style.position = 'fixed';
-    document.body.appendChild(float);
-    setTimeout(() => float.remove(), 800);
-
+    spawnFloatText(e);
     if (navigator.vibrate) navigator.vibrate(5);
     updateUI();
     saveLocal();
@@ -300,9 +302,9 @@
     }
 
     const btn = document.getElementById('syncBtn');
-    const originalContent = btn.innerHTML;
+    const original = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:16px;"></i> Syncing';
+    btn.innerHTML = '<i data-lucide="refresh-cw" class="animate-spin" style="width:14px;"></i>';
     lucide.createIcons();
 
     try {
@@ -313,88 +315,93 @@
       });
       const data = await response.json();
       if (data.success) {
-        notify("Database Synchronized!");
+        notify("Progress Synced!");
         renderLeaderboard(data.leaderboard);
       }
     } catch (err) {
-      notify("Sync failed. Checking local storage...");
+      notify("Offline Sync Saved.");
     } finally {
       btn.disabled = false;
-      btn.innerHTML = originalContent;
+      btn.innerHTML = original;
       lucide.createIcons();
     }
   }
 
   function renderLeaderboard(list) {
     const el = document.getElementById('leaderboardList');
-    if (!list) return;
+    if (!list || !list.length) return;
     el.innerHTML = list.map((item, i) => `
-      <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-        <span>${i+1}. ${item.wallet_address.slice(0,6)}...</span>
-        <span style="color:#00ff64; font-weight:700;">${item.score.toLocaleString()}</span>
+      <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+        <span style="color:#a8a8a8">${i+1}. ${item.wallet_address.slice(0,6)}...</span>
+        <span style="color:var(--gold); font-weight:700;">${item.score.toLocaleString()}</span>
       </div>
     `).join('');
   }
 
   function handleInvite() {
-    if (!state.wallet) {
-      notify("Connect wallet to generate referral link!");
-      tonConnectUI.openModal();
-      return;
-    }
-    const refLink = `${CONFIG.TG_BOT_URL}?start=${state.wallet}`;
-    const shareText = encodeURIComponent("🚀 Join me on LGC Miner! Farm tokens while the bridge lags. Get 2,000 LGC bonus instantly!\n\nJoin here: ");
+    const refLink = `${CONFIG.TG_BOT_URL}?start=${state.wallet || 'newUser'}`;
+    const shareText = encodeURIComponent("🚀 Farm LGC with me! Get 2,000 LGC bonus instantly. Let's mine while the bridge lags!");
     window.open(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`, '_blank');
   }
 
   function saveLocal() {
-    localStorage.setItem('lgc_pro_state', JSON.stringify({
+    localStorage.setItem('lgc_state_v2', JSON.stringify({
       balance: state.balance,
       todayTaps: state.todayTaps,
-      lastDate: new Date().toDateString()
+      date: new Date().toDateString()
     }));
   }
 
   function loadLocal() {
-    const saved = localStorage.getItem('lgc_pro_state');
+    const saved = localStorage.getItem('lgc_state_v2');
     if (saved) {
       const data = JSON.parse(saved);
-      if (data.lastDate === new Date().toDateString()) {
-        state.todayTaps = data.todayTaps;
-      } else {
-        state.todayTaps = 0;
+      if (data.date === new Date().toDateString()) {
+        state.todayTaps = data.todayTaps || 0;
       }
-      state.balance = data.balance;
+      state.balance = data.balance || 0;
     }
 
-    // Check for referral bonus in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('start') && !localStorage.getItem('lgc_ref_claimed')) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('start') && !localStorage.getItem('lgc_ref_init')) {
       state.balance += CONFIG.REF_BONUS;
-      localStorage.setItem('lgc_ref_claimed', 'true');
-      notify(`Welcome! +${CONFIG.REF_BONUS} LGC Referral Bonus added.`);
+      localStorage.setItem('lgc_ref_init', 'true');
+      notify(`Referral Bonus: +${CONFIG.REF_BONUS} LGC!`);
     }
   }
 
-  // --- Init ---
-  window.onload = () => {
+  window.addEventListener('load', () => {
+    try {
+        tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json',
+        });
+
+        tonConnectUI.onStatusChange(wallet => {
+            const btn = document.getElementById('headerConnectBtn');
+            if (wallet) {
+                state.wallet = wallet.account.address;
+                btn.textContent = `${state.wallet.slice(0,4)}...${state.wallet.slice(-4)}`;
+                syncProgress();
+            } else {
+                state.wallet = null;
+                btn.textContent = "Connect";
+            }
+        });
+    } catch (e) { console.error("TonConnect failed to init", e); }
+
     lucide.createIcons();
     loadLocal();
     updateUI();
 
-    tonConnectUI.onStatusChange(wallet => {
-      const btn = document.getElementById('headerConnectBtn');
-      if (wallet) {
-        state.wallet = wallet.account.address;
-        btn.textContent = `${state.wallet.slice(0,4)}...${state.wallet.slice(-4)}`;
-        syncProgress();
-      } else {
-        state.wallet = null;
-        btn.textContent = "Connect Wallet";
-      }
+    document.getElementById('tapBtn').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleTap(e);
+    }, { passive: false });
+    
+    document.getElementById('tapBtn').addEventListener('click', (e) => {
+        if (!('ontouchstart' in window)) handleTap(e);
     });
 
-    document.getElementById('tapBtn').addEventListener('click', handleTap);
     document.getElementById('syncBtn').addEventListener('click', syncProgress);
     document.getElementById('inviteBtn').addEventListener('click', handleInvite);
     document.getElementById('headerConnectBtn').addEventListener('click', () => {
@@ -402,14 +409,13 @@
       else tonConnectUI.openModal();
     });
 
-    // Energy Regen
     setInterval(() => {
       if (state.energy < CONFIG.MAX_ENERGY) {
         state.energy = Math.min(CONFIG.MAX_ENERGY, state.energy + CONFIG.REGEN_RATE);
         updateUI();
       }
-    }, 3000);
-  };
+    }, 4000);
+  });
 </script>
 
 </body>
