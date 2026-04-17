@@ -3,38 +3,464 @@
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LGC • Join the Delay</title>
+  <title>LGC • The Bridge Was Lagging</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/ton-connect/sdk@latest/releases/sdk/ton-connect-sdk.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; background: #0a0a0a; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
     
-    body {
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%);
-      overflow-y: auto;
-      padding: 15px;
+    html { height: 100%; }
+    body { 
+      height: 100%;
+      margin: 0;
+      background: linear-gradient(135deg, #0f1419 0%, #1a2847 50%, #0f1419 100%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      overflow-x: hidden;
     }
 
-    .container { max-width: 500px; margin: 0 auto; }
+    .app-wrapper {
+      height: 100%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow-y: auto;
+      background: 
+        radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
+        linear-gradient(135deg, #0f1419 0%, #1a2847 50%, #0f1419 100%);
+    }
 
-    .header {
-      text-align: center;
-      margin-bottom: 25px;
+    .container { 
+      max-width: 500px; 
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Header with Logo and Connect */
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
       animation: slideDown 0.6s ease-out;
     }
-    
-    h1 { 
-      color: #ffd700; 
+
+    .logo-circle {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1a3a52 0%, #2d5a7b 100%);
+      border: 2px solid #d4af37;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 28px;
-      margin-bottom: 5px;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      font-weight: bold;
+      color: #fff;
+      box-shadow: 0 0 30px rgba(212, 175, 55, 0.3), inset 0 0 20px rgba(212, 175, 55, 0.1);
+      position: relative;
     }
-    
-    .status-text { 
-      color: #888; 
+
+    .logo-circle::before {
+      content: '✦';
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 10px;
+      color: #d4af37;
+      opacity: 0.6;
+    }
+
+    .logo-circle::after {
+      content: '✦';
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      font-size: 10px;
+      color: #d4af37;
+      opacity: 0.6;
+    }
+
+    .connect-btn {
+      background: rgba(212, 175, 55, 0.1);
+      border: 1.5px solid #d4af37;
+      color: #d4af37;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+    }
+
+    .connect-btn:hover {
+      background: rgba(212, 175, 55, 0.2);
+      box-shadow: 0 0 25px rgba(212, 175, 55, 0.4);
+      transform: translateY(-2px);
+    }
+
+    /* Title Section */
+    .title-section {
+      text-align: center;
+      margin-bottom: 8px;
+      animation: slideDown 0.6s ease-out 0.1s both;
+    }
+
+    .title-main {
+      font-size: 32px;
+      font-weight: 700;
+      color: #d4af37;
+      text-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .title-sub {
       font-size: 14px;
+      color: #a8a8a8;
+      font-weight: 400;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 8px;
+      animation: fadeIn 0.8s ease-out 0.2s both;
+    }
+
+    .stat-card {
+      background: rgba(26, 40, 71, 0.6);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+      border-radius: 16px;
+      padding: 18px 14px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(212, 175, 55, 0.1);
+    }
+
+    .stat-card:hover {
+      background: rgba(26, 40, 71, 0.8);
+      border-color: rgba(212, 175, 55, 0.4);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(212, 175, 55, 0.2), inset 0 1px 0 rgba(212, 175, 55, 0.15);
+    }
+
+    .stat-label { 
+      color: #7a8a9a; 
+      font-size: 11px; 
+      margin-bottom: 8px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+    .stat-value { 
+      color: #d4af37;
+      font-size: 24px;
+      font-weight: 700;
+      text-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+    }
+
+    /* Balance Section */
+    .balance-section {
+      background: linear-gradient(135deg, rgba(26, 40, 71, 0.8) 0%, rgba(45, 90, 123, 0.5) 100%);
+      border: 1.5px solid rgba(212, 175, 55, 0.25);
+      border-radius: 20px;
+      padding: 32px 24px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(212, 175, 55, 0.15);
+      animation: fadeIn 0.8s ease-out 0.3s both;
+      margin-bottom: 12px;
+    }
+
+    .balance-label {
+      color: #a8a8a8;
+      font-size: 13px;
+      margin-bottom: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    .balance-value {
+      font-size: 56px;
+      font-weight: 700;
+      color: #d4af37;
+      text-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .balance-subtext {
+      color: #7a8a9a;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+
+    /* Action Buttons Group */
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      animation: fadeIn 0.8s ease-out 0.4s both;
+      margin-bottom: 24px;
+    }
+
+    .mine-btn {
+      flex: 1;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%);
+      color: #1a2847;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 20px rgba(212, 175, 55, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mine-btn:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(212, 175, 55, 0.5);
+    }
+
+    .mine-btn:active:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .mine-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .claim-btn {
+      flex: 0.6;
+      padding: 16px 16px;
+      background: rgba(212, 175, 55, 0.15);
+      border: 1.5px solid #d4af37;
+      color: #d4af37;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+    }
+
+    .claim-btn:hover:not(:disabled) {
+      background: rgba(212, 175, 55, 0.25);
+      box-shadow: 0 6px 18px rgba(212, 175, 55, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .claim-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      display: flex;
+      gap: 12px;
+      margin-top: auto;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    .nav-btn {
+      flex: 1;
+      padding: 14px 16px;
+      background: rgba(26, 40, 71, 0.7);
+      border: 1px solid rgba(212, 175, 55, 0.15);
+      color: #d4af37;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .nav-btn:hover {
+      background: rgba(26, 40, 71, 0.9);
+      border-color: rgba(212, 175, 55, 0.3);
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15);
+      transform: translateY(-2px);
+    }
+
+    /* Animations */
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .app-wrapper { padding: 16px; }
+      .title-main { font-size: 28px; }
+      .balance-value { font-size: 48px; }
+      .stat-value { font-size: 20px; }
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="app-wrapper">
+   <div class="container"><!-- Header with Logo and Connect -->
+    <div class="header-top">
+     <div class="logo-circle">
+      LGC
+     </div><button class="connect-btn"> <i data-lucide="folder" style="width: 16px; height: 16px;"></i> Connect </button>
+    </div><!-- Title Section -->
+    <div class="title-section">
+     <h1 class="title-main">The Bridge Was Lagging</h1>
+     <p class="title-sub">Time to farm LGC while you wait</p>
+    </div><!-- Stats Grid 2x2 -->
+    <div class="stats-grid">
+     <div class="stat-card">
+      <div class="stat-label">
+       Today's Mined
+      </div>
+      <div class="stat-value" id="todayMined">
+       0
+      </div>
+     </div>
+     <div class="stat-card">
+      <div class="stat-label">
+       Total Mined
+      </div>
+      <div class="stat-value" id="totalMined">
+       0
+      </div>
+     </div>
+     <div class="stat-card">
+      <div class="stat-label">
+       Mining Rate
+      </div>
+      <div class="stat-value">
+       10 LGC
+      </div>
+     </div>
+     <div class="stat-card">
+      <div class="stat-label">
+       Multiplier
+      </div>
+      <div class="stat-value">
+       1x
+      </div>
+     </div>
+    </div><!-- Current Balance Section -->
+    <div class="balance-section">
+     <div class="balance-label">
+      CURRENT BALANCE
+     </div>
+     <div class="balance-value" id="balanceValue">
+      0
+     </div>
+     <div class="balance-subtext">
+      Available to claim
+     </div><!-- Action Buttons -->
+     <div class="action-buttons"><button class="mine-btn" id="mineBtn"> <i data-lucide="zap" style="width: 18px; height: 18px;"></i> Mine LGC </button> <button class="claim-btn" id="claimBtn"> <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> Claim </button>
+     </div>
+    </div><!-- Bottom Navigation -->
+    <div class="bottom-nav"><button class="nav-btn">🏆 Top Miners</button> <button class="nav-btn">⚡ Upgrades</button> <button class="nav-btn">👥 Referrals</button>
+    </div>
+   </div>
+  </div>
+  <script>
+    let balance = 0;
+    let totalMined = 0;
+    let todayMined = 0;
+
+    const mineBtn = document.getElementById('mineBtn');
+    const claimBtn = document.getElementById('claimBtn');
+    const balanceValue = document.getElementById('balanceValue');
+    const totalMinedEl = document.getElementById('totalMined');
+    const todayMinedEl = document.getElementById('todayMined');
+
+    // Mine button handler
+    mineBtn.addEventListener('click', () => {
+      balance += 10;
+      totalMined += 10;
+      todayMined += 10;
+      updateDisplay();
+      animateButton(mineBtn);
+    });
+
+    // Claim button handler
+    claimBtn.addEventListener('click', () => {
+      if (balance > 0) {
+        balance = 0;
+        updateDisplay();
+        animateButton(claimBtn);
+      }
+    });
+
+    function updateDisplay() {
+      balanceValue.textContent = balance.toLocaleString();
+      totalMinedEl.textContent = totalMined.toLocaleString();
+      todayMinedEl.textContent = todayMined.toLocaleString();
+    }
+
+    function animateButton(btn) {
+      btn.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        btn.style.transform = '';
+      }, 100);
+    }
+
+    // Initialize Lucide icons
+    lucide.createIcons();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9edb84598186776f',t:'MTc3NjQyOTgyMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>      font-size: 14px;
       margin-bottom: 15px;
     }
 
