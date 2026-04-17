@@ -1,0 +1,15 @@
+{
+  "name": "lgc-miner",
+  "version": "1.0.0",
+  "description": "LGC mining Telegram Web App",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"No tests available\" && exit 0"
+  },
+  "keywords": ["lgc", "mining", "telegram", "webapp"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.12"
+  }
+}
