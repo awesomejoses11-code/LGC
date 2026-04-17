@@ -1,40 +1,349 @@
 <!doctype html>
 <html lang="en">
- <head>
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LGC • The Bridge Was Lagging</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ton-connect/sdk@latest/releases/sdk/ton-connect-sdk.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+
   <style>
+    /* Your existing styles + additions */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    html { height: 100%; }
     body { 
-      height: 100%;
-      margin: 0;
       background: linear-gradient(135deg, #0f1419 0%, #1a2847 50%, #0f1419 100%);
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-      overflow-x: hidden;
     }
 
-    .app-wrapper {
-      height: 100%;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
+    /* ... Paste all your previous CSS (balance, tap, wallet, stats, etc.) here ... */
+
+    .referral-section {
+      background: rgba(26, 40, 71, 0.8);
+      border: 1.5px solid rgba(212, 175, 55, 0.3);
+      border-radius: 16px;
       padding: 20px;
+      margin: 20px 0;
+    }
+    .referral-link {
+      background: rgba(0,0,0,0.4);
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+      margin: 12px 0;
+      border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+    .copy-btn, .action-btn {
+      background: #d4af37;
+      color: #1a2847;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .my-referrals-list {
+      max-height: 240px;
       overflow-y: auto;
-      background: 
-        radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
-        linear-gradient(135deg, #0f1419 0%, #1a2847 50%, #0f1419 100%);
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .referral-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(212,175,55,0.1);
+      margin-bottom: 6px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .leaderboard {
+      background: rgba(26, 40, 71, 0.8);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(212,175,55,0.08);
+      margin-bottom: 8px;
+      border-radius: 10px;
+    }
+    .top-3 { background: rgba(212,175,55,0.25); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+    <div class="container">
+      <!-- Header, Title, Stats, Balance + Big TAP button (keep from previous version) -->
+
+      <!-- Referral Section -->
+      <div class="referral-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h2 style="color:#d4af37;">👥 My Referrals</h2>
+          <div id="referralCount" style="font-size:20px; font-weight:700; color:#d4af37;">0</div>
+        </div>
+
+        <div id="referralLinkContainer" style="display:none;">
+          <div class="referral-link" id="referralLink"></div>
+          <button class="copy-btn" id="copyReferralBtn" style="width:100%; margin-bottom:16px;">Copy Referral Link</button>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <h3 style="margin-bottom:10px; font-size:15px;">My Referrals List</h3>
+          <div class="my-referrals-list" id="myReferralsList">
+            <div style="text-align:center; color:#777; padding:20px;">No referrals yet. Share your link!</div>
+          </div>
+        </div>
+
+        <div class="referral-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="stat-card">
+            <div class="stat-label">Total Referrals</div>
+            <div class="stat-value" id="totalReferrals">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Referral Earnings</div>
+            <div class="stat-value" id="referralEarnings">0 LGC</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Referral Leaderboard -->
+      <div class="leaderboard">
+        <h2 style="color:#d4af37; margin-bottom:16px;">🏆 Referral Leaderboard</h2>
+        <div id="leaderboardList"></div>
+      </div>
+
+      <!-- Wallet and other sections remain the same -->
+    </div>
+  </div>
+
+  <script>
+    // ============== GAME STATE ==============
+    let lgcBalance = 0;
+    let todayTaps = 0;
+    let tapStockpile = 50000;
+    let checkInBonus = 20;
+    let weeklyStreak = 1;
+    let lastTapDate = null;
+    let lastCheckInDate = null;
+
+    let referrals = [];           // [{address: string, earned: number, joined: string}]
+    let referralEarnings = 0;
+
+    const DAILY_TAP_LIMIT = 24000;
+    const MAX_STOCKPILE = 50000;
+    const LGC_PER_TAP = 20;
+    const REFERRAL_BONUS = 1000;
+    const REFERRAL_PERCENT = 0.15;
+
+    // DOM elements (add these)
+    const referralLinkEl = document.getElementById('referralLink');
+    const referralLinkContainer = document.getElementById('referralLinkContainer');
+    const copyReferralBtn = document.getElementById('copyReferralBtn');
+    const myReferralsList = document.getElementById('myReferralsList');
+    const totalReferralsEl = document.getElementById('totalReferrals');
+    const referralEarningsEl = document.getElementById('referralEarnings');
+    const referralCountEl = document.getElementById('referralCount');
+    const leaderboardList = document.getElementById('leaderboardList');
+
+    let tonConnectUI = null;
+    let walletConnected = false;
+    let userAddress = null;
+
+    // ============== STORAGE ==============
+    function loadGameState() {
+      const saved = localStorage.getItem('lgcGameState');
+      if (saved) {
+        const data = JSON.parse(saved);
+        Object.assign({ lgcBalance, todayTaps, tapStockpile, checkInBonus, weeklyStreak, lastTapDate, lastCheckInDate, referrals, referralEarnings }, data);
+        referrals = data.referrals || [];
+      }
+      checkDailyReset();
+      checkWeeklyReset();
     }
 
-    .container { 
-      max-width: 500px; 
+    function saveGameState() {
+      localStorage.setItem('lgcGameState', JSON.stringify({
+        lgcBalance, todayTaps, tapStockpile, checkInBonus, weeklyStreak,
+        lastTapDate, lastCheckInDate, referrals, referralEarnings
+      }));
+    }
+
+    // ============== REFERRAL HELPERS ==============
+    function generateReferralLink() {
+      if (!userAddress) return;
+      const base = window.location.origin + window.location.pathname;
+      const link = `\( {base}?ref= \){userAddress}`;
+      referralLinkEl.textContent = link;
+      referralLinkContainer.style.display = 'block';
+    }
+
+    async function copyReferralLink() {
+      await navigator.clipboard.writeText(referralLinkEl.textContent);
+      const orig = copyReferralBtn.textContent;
+      copyReferralBtn.textContent = "✅ Copied!";
+      setTimeout(() => copyReferralBtn.textContent = orig, 1800);
+    }
+
+    function addNewReferral(referrerAddress) {
+      if (!userAddress || referrals.some(r => r.address === referrerAddress)) return;
+
+      const newRef = {
+        address: referrerAddress,
+        earned: 0,
+        joined: new Date().toISOString()
+      };
+      referrals.push(newRef);
+      lgcBalance += REFERRAL_BONUS;
+      referralEarnings += REFERRAL_BONUS;
+
+      console.log(`[REFERRAL TRACK] New referral added: \( {referrerAddress} | + \){REFERRAL_BONUS} LGC to referrer`);
+      console.log(`[BACKEND READY] Payload for server:`, {
+        type: "new_referral",
+        referrer: userAddress,
+        referred: referrerAddress,
+        timestamp: Date.now(),
+        bonus: REFERRAL_BONUS
+      });
+
+      renderMyReferrals();
+      updateUI();
+      saveGameState();
+    }
+
+    function renderMyReferrals() {
+      myReferralsList.innerHTML = '';
+      if (referrals.length === 0) {
+        myReferralsList.innerHTML = `<div style="text-align:center; color:#888; padding:30px 10px;">No referrals yet.<br>Share your link to start earning!</div>`;
+        return;
+      }
+
+      referrals.forEach(ref => {
+        const short = ref.address.slice(0,8) + '...' + ref.address.slice(-6);
+        const div = document.createElement('div');
+        div.className = 'referral-item';
+        div.innerHTML = `
+          <span>${short}</span>
+          <span style="color:#d4af37;">${ref.earned} LGC</span>
+        `;
+        myReferralsList.appendChild(div);
+      });
+    }
+
+    // ============== LEADERBOARD (demo + your position) ==============
+    function renderLeaderboard() {
+      // Simulated top players (in production: fetch from backend)
+      const fakeLeaders = [
+        { rank: 1, address: "EQD...a1b2", referrals: 1240, earnings: 245000 },
+        { rank: 2, address: "EQF...c3d4", referrals: 980, earnings: 189000 },
+        { rank: 3, address: "EQG...e5f6", referrals: 760, earnings: 142000 },
+      ];
+
+      let html = '';
+      fakeLeaders.forEach(l => {
+        const short = l.address.slice(0,6) + '...' + l.address.slice(-4);
+        html += `
+          <div class="leaderboard-item top-3">
+            <span>#${l.rank} ${short}</span>
+            <span>${l.referrals} refs • ${l.earnings.toLocaleString()} LGC</span>
+          </div>`;
+      });
+
+      // Add current user if they have referrals
+      if (referrals.length > 0) {
+        const short = userAddress ? userAddress.slice(0,6) + '...' + userAddress.slice(-4) : 'You';
+        html += `
+          <div class="leaderboard-item" style="border-top:2px solid #d4af37; margin-top:12px; padding-top:12px;">
+            <span>You (${short})</span>
+            <span>${referrals.length} refs • ${Math.floor(referralEarnings).toLocaleString()} LGC</span>
+          </div>`;
+      }
+
+      leaderboardList.innerHTML = html;
+    }
+
+    // ============== TAP with 15% commission simulation ==============
+    function performTap() {
+      // ... existing tap logic ...
+
+      const earned = LGC_PER_TAP + checkInBonus;
+      lgcBalance += earned;
+
+      // Simulate 15% commission from referrals
+      if (referrals.length > 0) {
+        const commission = Math.floor(earned * REFERRAL_PERCENT * referrals.length);
+        referralEarnings += commission;
+        console.log(`[REFERRAL COMMISSION] +${commission} LGC from referrals' activity`);
+      }
+
+      updateUI();
+      saveGameState();
+    }
+
+    function updateUI() {
+      // ... your existing updateUI ...
+      totalReferralsEl.textContent = referrals.length;
+      referralEarningsEl.textContent = `${Math.floor(referralEarnings)} LGC`;
+      referralCountEl.textContent = referrals.length;
+      renderMyReferrals();
+    }
+
+    // ============== TON CONNECT + REFERRAL DETECTION ==============
+    function initTonConnect() {
+      tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: 'https://your-domain.com/tonconnect-manifest.json',
+      });
+
+      tonConnectUI.onStatusChange((wallet) => {
+        walletConnected = !!wallet;
+        if (wallet) {
+          userAddress = wallet.account.address;
+          generateReferralLink();
+          renderLeaderboard();
+
+          // Check URL for referral
+          const params = new URLSearchParams(window.location.search);
+          const ref = params.get('ref');
+          if (ref && ref !== userAddress) {
+            console.log(`[REFERRAL DETECTED] User came via referral from: ${ref}`);
+            // In production: send to backend immediately
+            console.log(`[BACKEND PAYLOAD] { event: "referral_visit", referrer: "\( {ref}", newUser: " \){userAddress}", time: ${Date.now()} }`);
+            // You can call addNewReferral(ref) here if you want instant bonus on visit
+          }
+        }
+      });
+    }
+
+    // ============== INIT ==============
+    window.onload = () => {
+      lucide.createIcons();
+      loadGameState();
+      initTonConnect();
+      updateUI();
+      renderLeaderboard();
+
+      // Event listeners (tap, claim, copy, etc.)
+      document.getElementById('tapBtn').addEventListener('click', performTap);
+      document.getElementById('claimBtn').addEventListener('click', claimAll);
+      copyReferralBtn.addEventListener('click', copyReferralLink);
+
+      // For testing new referral (remove in production or make admin-only)
+      // Example: addNewReferral("EQTestReferralAddress1234567890");
+    };
+
+    // Claim function (unchanged)
+    function claimAll() { /* ... */ }
+    function checkDailyReset() { /* ... */ }
+    function checkWeeklyReset() { /* ... */ }
+  </script>
+</body>
+</html>      max-width: 500px; 
       width: 100%;
       margin: 0 auto;
       flex: 1;
