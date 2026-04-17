@@ -1,40 +1,706 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
+ <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LGC • Join the Delay</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/ton-connect/sdk@latest/releases/sdk/ton-connect-sdk.js"></script>
   <style>
-    body { background: #0a0a0a; color: #fff; font-family: system-ui; text-align: center; padding: 20px; }
-    h1 { color: #ffd700; } /* Gold for lag meme */
-    button { padding: 15px 30px; margin: 10px; font-size: 18px; border: none; border-radius: 12px; }
-    .mine-btn { background: #ffcc00; color: #000; }
-    .claim-btn { background: #00ff00; color: #000; }
-  </style>
-</head>
-<body>
-  <h1>🚧 The Bridge Was Lagging...</h1>
-  <p id="status">Pending tx detected. Time to farm LGC.</p>
-  
-  <button class="mine-btn" onclick="mineLGC()">Check Bridge • Mine LGC</button>
-  <p>Your balance: <span id="balance">0</span> LGC</p>
-  
-  <button class="claim-btn" onclick="claimLGC()">Claim & Withdraw to Wallet</button>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #0a0a0a; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
+    
+    body {
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%);
+      overflow-y: auto;
+      padding: 15px;
+    }
 
+    .container { max-width: 500px; margin: 0 auto; }
+
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+      animation: slideDown 0.6s ease-out;
+    }
+    
+    h1 { 
+      color: #ffd700; 
+      font-size: 28px;
+      margin-bottom: 5px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    }
+    
+    .status-text { 
+      color: #888; 
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+      animation: fadeIn 0.8s ease-out 0.2s both;
+    }
+
+    .stat-card {
+      background: rgba(255, 215, 0, 0.08);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      background: rgba(255, 215, 0, 0.15);
+      border-color: rgba(255, 215, 0, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .stat-label { color: #888; font-size: 12px; margin-bottom: 5px; }
+    .stat-value { 
+      color: #ffd700; 
+      font-size: 20px; 
+      font-weight: bold;
+    }
+
+    .mining-section {
+      background: rgba(255, 215, 0, 0.05);
+      border: 2px solid rgba(255, 215, 0, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      animation: fadeIn 0.8s ease-out 0.4s both;
+    }
+
+    .balance-display {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .balance-label { color: #888; font-size: 13px; margin-bottom: 8px; }
+    .balance-value { 
+      font-size: 42px; 
+      font-weight: bold;
+      color: #ffd700;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+    }
+
+    .streak-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #ff6b6b, #ffd700);
+      color: #000;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-top: 10px;
+      animation: pulse 2s infinite;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      animation: fadeIn 0.8s ease-out 0.6s both;
+    }
+
+    button {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .mine-btn {
+      background: linear-gradient(135deg, #ffcc00, #ffd700);
+      color: #000;
+      flex: 2;
+    }
+
+    .mine-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+    }
+
+    .wallet-btn {
+      background: rgba(0, 255, 0, 0.2);
+      border: 1px solid rgba(0, 255, 0, 0.4);
+      color: #00ff00;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .wallet-btn:hover {
+      background: rgba(0, 255, 0, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .wallet-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .mine-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+    }
+
+    .mine-btn.mining {
+      animation: pulse 0.6s ease-in-out infinite;
+    }
+
+    .claim-btn {
+      background: linear-gradient(135deg, #00ff00, #00cc00);
+      color: #000;
+    }
+
+    .claim-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 255, 0, 0.4);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      animation: fadeIn 0.8s ease-out 0.8s both;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #888;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      font-weight: normal;
+    }
+
+    .tab-btn.active {
+      background: rgba(255, 215, 0, 0.2);
+      color: #ffd700;
+      border-color: rgba(255, 215, 0, 0.4);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .leaderboard-list {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .leaderboard-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.2s ease;
+    }
+
+    .leaderboard-item:hover {
+      background: rgba(255, 215, 0, 0.08);
+    }
+
+    .leaderboard-rank {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 215, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #ffd700;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .leaderboard-rank.top3 {
+      background: linear-gradient(135deg, #ffd700, #ffaa00);
+      color: #000;
+    }
+
+    .leaderboard-info {
+      flex: 1;
+      text-align: left;
+    }
+
+    .leaderboard-name {
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+
+    .leaderboard-amount {
+      color: #ffd700;
+      font-size: 14px;
+    }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .shop-item {
+      background: rgba(255, 215, 0, 0.05);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .shop-item:hover {
+      background: rgba(255, 215, 0, 0.12);
+      border-color: rgba(255, 215, 0, 0.4);
+      transform: translateY(-3px);
+    }
+
+    .shop-item.purchased {
+      background: rgba(0, 255, 0, 0.08);
+      border-color: rgba(0, 255, 0, 0.3);
+    }
+
+    .shop-emoji { font-size: 32px; margin-bottom: 8px; }
+    .shop-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    .shop-desc { color: #888; font-size: 12px; margin-bottom: 10px; }
+    .shop-price { 
+      color: #ffd700; 
+      font-weight: bold; 
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .shop-btn {
+      width: 100%;
+      padding: 8px;
+      background: rgba(255, 215, 0, 0.2);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      color: #ffd700;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      display: block;
+      flex: none;
+    }
+
+    .shop-btn:hover:not(:disabled) {
+      background: rgba(255, 215, 0, 0.3);
+    }
+
+    .shop-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .referral-box {
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .referral-code {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      padding: 12px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-family: monospace;
+      font-size: 16px;
+      color: #ffd700;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background: rgba(255, 215, 0, 0.2);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      color: #ffd700;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 215, 0, 0.3);
+    }
+
+    .referral-earnings {
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(0, 255, 0, 0.08);
+      border: 1px solid rgba(0, 255, 0, 0.2);
+      border-radius: 8px;
+    }
+
+    .referral-count { color: #888; font-size: 13px; }
+    .referral-bonus { color: #00ff00; font-size: 18px; font-weight: bold; margin-top: 8px; }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .mine-particle {
+      position: fixed;
+      pointer-events: none;
+      font-size: 24px;
+      animation: floatUp 1s ease-out forwards;
+      z-index: 999;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) translateX(0); }
+      100% { opacity: 0; transform: translateY(-80px) translateX(20px); }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 215, 0, 0.2);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      color: #ffd700;
+      padding: 15px 20px;
+      border-radius: 8px;
+      animation: slideUp 0.3s ease-out;
+      z-index: 1000;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    i {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="container">
+   <div class="header">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+     <h1 style="margin-bottom: 0;">🚧 The Bridge Was Lagging</h1><button id="walletBtn" class="wallet-btn" onclick="connectWallet()" style="padding: 8px 12px; font-size: 12px;"> <i data-lucide="wallet" style="width: 16px; height: 16px;"></i> Connect </button>
+    </div>
+    <p class="status-text" id="status">Time to farm LGC while you wait</p>
+    <p class="status-text" id="walletStatus" style="color: #00ff00; display: none;">✓ Wallet Connected</p>
+   </div>
+   <div class="stats-grid">
+    <div class="stat-card">
+     <div class="stat-label">
+      Today's Mined
+     </div>
+     <div class="stat-value" id="todayMined">
+      0
+     </div>
+    </div>
+    <div class="stat-card">
+     <div class="stat-label">
+      Total Mined
+     </div>
+     <div class="stat-value" id="totalMined">
+      0
+     </div>
+    </div>
+    <div class="stat-card">
+     <div class="stat-label">
+      Mining Rate
+     </div>
+     <div class="stat-value" id="miningRate">
+      10 LGC
+     </div>
+    </div>
+    <div class="stat-card">
+     <div class="stat-label">
+      Multiplier
+     </div>
+     <div class="stat-value" id="multiplier">
+      1x
+     </div>
+    </div>
+   </div>
+   <div class="mining-section">
+    <div class="balance-display">
+     <div class="balance-label">
+      Current Balance
+     </div>
+     <div class="balance-value" id="balance">
+      0
+     </div>
+     <div class="streak-badge" id="streakBadge" style="display: none;">
+      🔥 <span id="streakCount">0</span> Day Streak
+     </div>
+    </div>
+    <div class="button-group">
+     <button class="mine-btn" id="mineBtn" onclick="mineLGC()"> <i data-lucide="zap"></i> Mine LGC </button> <button class="claim-btn" id="claimBtn" onclick="claimLGC()"> <i data-lucide="wallet"></i> Claim </button>
+    </div>
+   </div>
+   <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('leaderboard', event)">🏆 Top Miners</button> <button class="tab-btn" onclick="switchTab('upgrades', event)">⚡ Upgrades</button> <button class="tab-btn" onclick="switchTab('referral', event)">👥 Referrals</button>
+   </div>
+   <div id="leaderboard" class="tab-content active">
+    <div class="leaderboard-list" id="leaderboardList"></div>
+   </div>
+   <div id="upgrades" class="tab-content">
+    <div class="shop-grid" id="shopGrid"></div>
+   </div>
+   <div id="referral" class="tab-content">
+    <div class="referral-box">
+     <div style="margin-bottom: 10px;">
+      📤 Share Your Code
+     </div>
+     <p style="color: #888; font-size: 13px; margin-bottom: 15px;">Friends mine 50% faster with your code!</p>
+     <div class="referral-code" id="referralCode">
+      LGC_USER_12345
+     </div><button class="copy-btn" onclick="copyReferralCode()"> <i data-lucide="copy"></i> Copy Code </button>
+     <div class="referral-earnings">
+      <div class="referral-count">
+       Friends Referred: <span id="referralCount">0</span>
+      </div>
+      <div class="referral-bonus">
+       Bonus: <span id="referralBonus">0</span> LGC
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
   <script>
-    // Initialize Telegram WebApp
+    lucide.createIcons();
+
     const tg = window.Telegram.WebApp;
     tg.ready();
-    tg.expand(); // Makes it full screen
+    tg.expand();
 
-    let balance = 0;
-    const LGC_ADDRESS = "EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej"; // Your token
+    const userId = tg.initDataUnsafe.user?.id || Math.floor(Math.random() * 1000000);
+    const userName = tg.initDataUnsafe.user?.first_name || "Miner";
+
+    // TON Connect integration
+    let tonConnectUI = null;
+    let walletConnected = false;
+    let userWallet = null;
+
+    // Initialize TON Connect
+    async function initTonConnect() {
+      try {
+        const TonConnectUI = window.TonConnectUI;
+        tonConnectUI = new TonConnectUI({
+          manifestUrl: 'https://ton-connect-manifest.vercel.app/manifest.json',
+          buttonRootId: 'walletBtn'
+        });
+
+        // Listen for wallet connection changes
+        tonConnectUI.onStatusChange(wallet => {
+          if (wallet) {
+            walletConnected = true;
+            userWallet = wallet.account;
+            document.getElementById('walletStatus').style.display = 'block';
+            document.getElementById('walletBtn').textContent = '✓ Connected';
+            showToast('✓ Wallet connected!');
+          } else {
+            walletConnected = false;
+            userWallet = null;
+            document.getElementById('walletStatus').style.display = 'none';
+            document.getElementById('walletBtn').innerHTML = '<i data-lucide="wallet" style="width: 16px; height: 16px;"></i> Connect';
+          }
+          lucide.createIcons();
+        });
+      } catch (e) {
+        console.log('TON Connect not available yet');
+      }
+    }
+
+    async function connectWallet() {
+      if (!tonConnectUI) await initTonConnect();
+      
+      try {
+        if (walletConnected) {
+          // Disconnect
+          await tonConnectUI.disconnect();
+        } else {
+          // Connect
+          await tonConnectUI.openSingleWalletModal();
+        }
+      } catch (e) {
+        console.error('Wallet connection error:', e);
+        showToast('Failed to connect wallet');
+      }
+    }
+
+    async function sendLGCToWallet() {
+      if (!walletConnected || !userWallet) {
+        showToast('Please connect your wallet first!');
+        return;
+      }
+
+      if (gameState.balance <= 0) {
+        showToast('No LGC to claim!');
+        return;
+      }
+
+      try {
+        const claimAmount = gameState.balance;
+        
+        // Create transfer payload (this would need backend integration for real token transfer)
+        showToast(`📤 Sending ${claimAmount} LGC to wallet...`);
+        
+        // Simulate backend call
+        gameState.balance = 0;
+        showToast(`✨ Successfully sent ${claimAmount} LGC!`);
+        updateUI();
+        
+        document.getElementById('claimBtn').disabled = true;
+        setTimeout(() => {
+          document.getElementById('claimBtn').disabled = false;
+        }, 3000);
+      } catch (e) {
+        console.error('Transfer error:', e);
+        showToast('Transfer failed!');
+      }
+    }
+
+    let gameState = {
+      balance: 0,
+      totalMined: 0,
+      todayMined: 0,
+      streak: 0,
+      miningRate: 10,
+      multiplier: 1,
+      referralCode: `LGC_${userId}`,
+      referredFriends: 0,
+      referralBonus: 0,
+      upgrades: {
+        speedBoost: 0,
+        fastMiner: 0,
+        autoMine: false,
+        premiumStatus: false
+      }
+    };
+
+    const UPGRADES = [
+      { id: 'speedBoost', name: 'Speed Boost', emoji: '⚡', desc: '+5 LGC/click', cost: 50, effect: () => { gameState.miningRate += 5; updateUI(); } },
+      { id: 'fastMiner', name: 'Fast Miner', emoji: '🚀', desc: '+10 LGC/click', cost: 100, effect: () => { gameState.miningRate += 10; updateUI(); } },
+      { id: 'autoMine', name: 'Auto Mine', emoji: '🤖', desc: '+2 LGC/sec', cost: 200, effect: () => { gameState.upgrades.autoMine = true; startAutoMining(); updateUI(); } },
+      { id: 'premiumStatus', name: 'Premium Status', emoji: '👑', desc: '2x multiplier', cost: 500, effect: () => { gameState.upgrades.premiumStatus = true; gameState.multiplier = 2; updateUI(); } },
+    ];
+
+    // Dynamic leaderboard that updates as player mines
+    let leaderboardData = [
+      { name: 'CryptoKing', amount: 5432, id: 'user1' },
+      { name: 'BlockMaster', amount: 4891, id: 'user2' },
+      { name: 'TokenRush', amount: 4234, id: 'user3' },
+      { name: 'MinerPro', amount: 3876, id: 'user4' },
+      { name: 'LagLord', amount: 3421, id: 'user5' },
+      { name: 'BridgeGain', amount: 2987, id: 'user6' },
+      { name: userName, amount: 0, id: userId, isPlayer: true }
+    ];
+
+    function updateLeaderboard() {
+      // Sort by amount and keep only top 10
+      leaderboardData.sort((a, b) => b.amount - a.amount);
+      leaderboardData = leaderboardData.slice(0, 10);
+
+      const leaderboardList = document.getElementById('leaderboardList');
+      leaderboardList.innerHTML = leaderboardData.map((entry, idx) => `
+        <div class="leaderboard-item" style="${entry.isPlayer ? 'background: rgba(255, 215, 0, 0.12);' : ''}">
+          <div class="leaderboard-rank ${idx < 3 ? 'top3' : ''}">${idx + 1}</div>
+          <div class="leaderboard-info">
+            <div class="leaderboard-name">${entry.name} ${entry.isPlayer ? '(You)' : ''}</div>
+            <div class="leaderboard-amount">${entry.amount} LGC</div>
+          </div>
+        </div>
+      `).join('');
+    }
 
     function mineLGC() {
-      // Simple timer simulation (every few hours in real version)
-      document.getElementById("status").innerText = "⏳ Bridge lagging... Mining LGC while you wait!";
-      balance += 10; // Fake 10 LGC per "check"
+      const mineAmount = gameState.miningRate * gameState.multiplier;
+      gameState.balance += mineAmount;
+      gameState.totalMined += mineAmount;
+      gameState.todayMined += mineAmount;
+
+      // Update player in leaderboard
+      const playerEntry = leaderboardData.find(e => e.isPlayer);
+      if (playerEntry) {
+        playerEntry.amount = gameState.totalMined;
+      }
+
+      const lastMineDate = localStorage.getItem('lastMineDate');
+      const today = new Date().toDateString();
+      if (lastMineDate !== today) {
+        gameState.streak = (lastMineDate === new Date(Date.now() - 86400000).toDateString()) ? gameState.streak + 1 : 1;
+        localStorage.setItem('lastMineDate', today);
+      }
+
+      createMineParticle();
+      showToast(`+${mineAmount} LGC 💰`);
+
+      updateUI();
+      document.getElementById('mineBtn').classList.add('mining');
+      setTimeout(() => document.getElementById('mineBtn').classList.remove('mining'), 300);
+    }
+
+       balance += 10; // Fake 10 LGC per "check"
       document.getElementById("balance").innerText = balance;
       
       // Later: call your backend here to record real rewards
