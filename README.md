@@ -1,0 +1,2 @@
+# LGC
+For LGC mining ⛏️
