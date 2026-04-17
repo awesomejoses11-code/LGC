@@ -1,5 +1,7 @@
-"url": "https://lgcminer.vercel.app",
-  "name": "LGC - The Bridge Was Lagging",
-  "iconUrl": "https://lgcminer.vercel.app/icon.png",
-  "termsOfUseUrl": "https://lgcminer.vercel.app/terms",
-  "privacyPolicyUrl": "https://lgcminer.vercel.app/privacy"
+{
+  "url": "https://lgcminer.vercel.app",
+  "name": "LGC Miner",
+  "iconUrl": "https://lgcminer.vercel.app/logo.png",
+  "termsOfUseUrl": "https://lgcminer.vercel.app/terms.html",
+  "privacyPolicyUrl": "https://lgcminer.vercel.app/privacy.html"
+}
