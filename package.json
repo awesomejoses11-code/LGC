@@ -1,0 +1,8 @@
+{
+  "name": "lgc-miner",
+  "version": "1.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "@tonconnect/sdk": "^3.0.0"
+  }
+}
