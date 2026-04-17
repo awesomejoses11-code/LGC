@@ -1,10 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My Page</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LGC Mining App</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
 </head>
 <body>
-    <h1>Welcome to my page!</h1>
-    <p>This is the main entry point.</p>
+    <header>
+        <h1>LGC Mining Application</h1>
+    </header>
+    <main>
+        <section id="controls">
+            <button id="startMining">Start Mining</button>
+            <button id="stopMining">Stop Mining</button>
+            <div id="status"></div>
+        </section>
+        <section id="results">
+            <h2>Results</h2>
+            <div id="minedData"></div>
+            <div id="errorMessages"></div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 LGC Mining App</p>
+    </footer>
 </body>
 </html>
+
+<script>
+// LGC Mining Application JavaScript
+let miningActive = false;
+let minedItems = [];
+
+document.getElementById('startMining').addEventListener('click', () => {
+    if (!miningActive) {
+        miningActive = true;
+        document.getElementById('status').innerText = 'Mining in progress...';
+        startMining();
+    }
+});
+
+document.getElementById('stopMining').addEventListener('click', () => {
+    if (miningActive) {
+        miningActive = false;
+        document.getElementById('status').innerText = 'Mining stopped.';
+    }
+});
+
+function startMining() {
+    // Simulate mining process with error handling and rate limiting
+    try {
+        const maxItems = 100;
+        const interval = setInterval(() => {
+            if (!miningActive || minedItems.length >= maxItems) {
+                clearInterval(interval);
+                return;
+            }
+            // Simulate mined item
+            const newItem = `Mined Item ${minedItems.length + 1}`;
+            minedItems.push(newItem);
+            displayMinedData(newItem);
+        }, 1000);
+    } catch (error) {
+        logError(error);
+    }
+}
+
+function displayMinedData(item) {
+    const minedDataDiv = document.getElementById('minedData');
+    minedDataDiv.insertAdjacentHTML('beforeend', `<p>${item}</p>`);
+}
+
+function logError(error) {
+    const errorMessagesDiv = document.getElementById('errorMessages');
+    errorMessagesDiv.insertAdjacentHTML('beforeend', `<p>Error: ${error.message}</p>`);
+}
+</script>
