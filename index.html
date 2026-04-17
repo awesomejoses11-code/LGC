@@ -2,352 +2,416 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>LGC • The Bridge Was Lagging</title>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; -webkit-tap-highlight-color: transparent; }
-    body { 
-      background: linear-gradient(135deg, #0f1419 0%, #1a2847 50%, #0f1419 100%);
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      overflow-x: hidden;
-      line-height: 1.5;
-    }
-    .app-wrapper { height: 100%; padding: 20px; overflow-y: auto; }
-    .container { 
-      max-width: 500px; width: 100%; margin: 0 auto; 
-      display: flex; flex-direction: column; gap: 24px;
-      padding-bottom: 40px;
+    :root {
+      --gold: #d4af37;
+      --gold-light: #f0e68c;
+      --bg-dark: #0f1419;
+      --card-bg: rgba(26, 40, 71, 0.6);
+      --glass: rgba(255, 255, 255, 0.03);
     }
 
-    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .logo-circle {
-      width: 70px; height: 70px; border-radius: 50%;
-      background: linear-gradient(135deg, #1a3a52 0%, #2d5a7b 100%);
-      border: 2px solid #d4af37;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 28px; font-weight: bold; color: #fff;
-      box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    body { 
+      background: radial-gradient(circle at top, #1a2847 0%, #0f1419 100%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
     }
+
+    .app-wrapper { padding: 16px; max-width: 500px; margin: 0 auto; }
+
+    /* Header */
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-top: 8px; }
+    .logo-circle {
+      width: 50px; height: 50px; border-radius: 16px;
+      background: linear-gradient(135deg, #1a3a52 0%, #2d5a7b 100%);
+      border: 1.5px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800; color: var(--gold);
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+    }
+    
     .connect-btn {
-      background: rgba(212, 175, 55, 0.1); border: 1.5px solid #d4af37;
-      color: #d4af37; padding: 10px 16px; border-radius: 10px;
-      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: var(--glass); border: 1px solid rgba(212, 175, 55, 0.3);
+      color: var(--gold); padding: 10px 18px; border-radius: 12px;
+      font-size: 13px; font-weight: 600; cursor: pointer; backdrop-filter: blur(10px);
       transition: all 0.2s;
     }
-    .connect-btn:active { transform: scale(0.95); background: rgba(212, 175, 55, 0.2); }
 
-    .title-main { font-size: 32px; font-weight: 700; color: #d4af37; text-align: center; }
-    .title-sub { font-size: 14px; color: #a8a8a8; text-align: center; margin-top: 4px; }
-
-    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .stat-card {
-      background: rgba(26, 40, 71, 0.6); border: 1px solid rgba(212, 175, 55, 0.2);
-      border-radius: 16px; padding: 18px; text-align: center;
-    }
-    .stat-label { color: #7a8a9a; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-    .stat-value { color: #d4af37; font-size: 24px; font-weight: 700; margin-top: 4px; }
-
+    /* Main Balance Card */
     .balance-section {
-      background: linear-gradient(135deg, rgba(26, 40, 71, 0.8), rgba(45, 90, 123, 0.5));
-      border: 1.5px solid rgba(212, 175, 55, 0.25); border-radius: 20px;
-      padding: 32px 24px; text-align: center; position: relative;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      background: linear-gradient(180deg, rgba(45, 90, 123, 0.3) 0%, rgba(26, 40, 71, 0.6) 100%);
+      border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 28px;
+      padding: 32px 20px; text-align: center; margin-bottom: 20px;
+      backdrop-filter: blur(12px); box-shadow: 0 20px 40px rgba(0,0,0,0.4);
     }
-    .balance-value { font-size: 48px; font-weight: 700; color: #d4af37; margin: 12px 0; word-break: break-all; }
+    .balance-label { color: #a8a8a8; font-size: 12px; letter-spacing: 2px; font-weight: 600; }
+    .balance-value { font-size: 52px; font-weight: 800; color: var(--gold); margin: 8px 0; text-shadow: 0 0 20px rgba(212, 175, 55, 0.3); }
 
-    .tap-btn, .claim-btn {
-      width: 100%; padding: 18px; border: none; border-radius: 16px;
-      font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 12px; 
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      transition: transform 0.1s;
-    }
+    /* Buttons */
     .tap-btn {
-      background: linear-gradient(135deg, #d4af37 0%, #f0e68c 100%);
-      color: #1a2847;
-      box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+      width: 100%; padding: 20px; border: none; border-radius: 18px;
+      font-size: 18px; font-weight: 800; cursor: pointer;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+      color: #1a2847; transition: transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
+      margin-top: 10px;
     }
-    .claim-btn {
-      background: linear-gradient(135deg, #00ff64, #00cc52);
-      color: #000;
-      box-shadow: 0 4px 15px rgba(0, 255, 100, 0.3);
+    .tap-btn:active { transform: scale(0.96); }
+    .tap-btn:disabled { opacity: 0.5; filter: grayscale(1); }
+
+    .secondary-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .action-btn {
+      padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1);
+      background: var(--glass); color: #fff; font-size: 14px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .tap-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
-    .claim-btn:disabled { 
-      background: #333; 
-      color: #777; 
-      box-shadow: none; 
-      cursor: not-allowed;
+    .action-btn.active { background: #00ff64; color: #000; border: none; }
+    .action-btn:disabled { opacity: 0.3; }
+
+    /* Stats Grid */
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .small-card { background: var(--card-bg); border-radius: 18px; padding: 14px; border: 1px solid rgba(255,255,255,0.05); }
+    .small-card label { display: block; font-size: 10px; color: #7a8a9a; text-transform: uppercase; margin-bottom: 4px; }
+    .small-card span { font-size: 18px; font-weight: 700; color: var(--gold); }
+
+    /* Referral Card */
+    .card { background: var(--card-bg); border-radius: 24px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .card-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--gold); }
+    
+    .ref-box {
+      background: rgba(0,0,0,0.3); padding: 16px; border-radius: 14px;
+      margin-top: 12px; border: 1px dashed rgba(212, 175, 55, 0.4);
+    }
+    .ref-reward-tag {
+      background: rgba(212, 175, 55, 0.15); color: var(--gold);
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+      margin-bottom: 10px; display: inline-block;
     }
 
+    /* Footer / Links */
+    .footer-links { text-align: center; padding: 20px 0; }
+    .tonviewer-link { 
+      color: #555; font-size: 11px; text-decoration: none; 
+      display: inline-flex; align-items: center; gap: 4px; 
+      transition: color 0.2s;
+    }
+    .tonviewer-link:hover { color: var(--gold); }
+
+    /* Progress & Animation */
+    .progress-wrap { height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; margin: 16px 0 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #00ff64; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px rgba(0,255,100,0.4); }
+    
     .float-text {
-      position: absolute; color: #d4af37; font-weight: bold; font-size: 24px;
-      pointer-events: none; animation: floatUp 1s ease-out forwards; z-index: 20;
-      text-shadow: 0 0 5px rgba(0,0,0,0.5);
+      position: absolute; color: var(--gold); font-weight: 900; font-size: 28px;
+      pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 100;
+      text-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-100px) scale(1.5); }
+      100% { opacity: 0; transform: translateY(-120px) scale(1.4); }
     }
-
-    .card {
-      background: rgba(26, 40, 71, 0.6); border: 1px solid rgba(212, 175, 55, 0.15);
-      border-radius: 16px; padding: 20px;
-    }
-    .list-item {
-      display: flex; justify-content: space-between; padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .list-item:last-child { border: none; }
 
     #notification {
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      background: #d4af37; color: #1a2847; padding: 12px 24px;
-      border-radius: 50px; font-weight: 600; z-index: 1000;
-      display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: var(--gold); color: #1a2847; padding: 14px 28px;
+      border-radius: 20px; font-weight: 700; z-index: 2000;
+      display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 14px;
     }
-
-    /* Progress Bar Styles */
-    .progress-container {
-      width: 100%; height: 8px; background: rgba(255,255,255,0.1);
-      border-radius: 10px; margin-top: 15px; overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%; background: #00ff64; width: 0%;
-      transition: width 0.3s ease;
-    }
-    .min-label { font-size: 11px; color: #7a8a9a; margin-top: 6px; display: block; }
   </style>
 </head>
 <body>
-  <div id="notification"></div>
-  <div class="app-wrapper">
-    <div class="container">
 
-      <div class="header-top">
-        <div class="logo-circle">LGC</div>
-        <button class="connect-btn" id="headerConnectBtn">Connect</button>
-      </div>
+<div id="notification"></div>
 
-      <div>
-        <h1 class="title-main">The Bridge Was Lagging</h1>
-        <p class="title-sub">Time to farm LGC while you wait</p>
-      </div>
+<div class="app-wrapper">
+  
+  <!-- Header -->
+  <header class="header-top">
+    <div class="logo-circle">LGC</div>
+    <button class="connect-btn" id="headerConnectBtn">Connect Wallet</button>
+  </header>
 
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Today's Taps</div>
-          <div class="stat-value" id="todayTaps">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Stockpile</div>
-          <div class="stat-value" id="stockpile">50000</div>
-        </div>
-      </div>
+  <!-- Balance Section -->
+  <section class="balance-section" id="balanceArea">
+    <p class="balance-label">TOTAL STOCKPILE</p>
+    <h1 class="balance-value" id="balanceDisplay">0</h1>
+    
+    <div class="progress-wrap">
+      <div class="progress-fill" id="withdrawProgress"></div>
+    </div>
+    <p id="minLabel" style="font-size: 11px; color: #7a8a9a;">Goal: 150,000 LGC for claim</p>
 
-      <div class="balance-section" id="balanceSection">
-        <div style="color:#a8a8a8; font-size:13px; letter-spacing: 1px;">CURRENT BALANCE</div>
-        <div id="balanceValue" class="balance-value">0</div>
-        
-        <div class="progress-container">
-          <div id="withdrawProgress" class="progress-bar"></div>
-        </div>
-        <span class="min-label" id="minLabel">Min. withdrawal: 150,000 LGC</span>
+    <button id="tapBtn" class="tap-btn">TAP TO MINE</button>
+    
+    <div class="secondary-btns">
+      <button class="action-btn" id="syncBtn">
+        <i data-lucide="refresh-cw" style="width:16px;"></i> Sync
+      </button>
+      <button class="action-btn" id="claimBtn" disabled>
+        <i data-lucide="external-link" style="width:16px;"></i> Claim
+      </button>
+    </div>
+  </section>
 
-        <button id="tapBtn" class="tap-btn">
-          <i data-lucide="zap" style="width:22px;height:22px;"></i> TAP TO MINE
-        </button>
-        <button id="claimBtn" class="claim-btn">
-          <i data-lucide="check-circle" style="width:22px;height:22px;"></i> SYNC & CLAIM
-        </button>
-        <div id="limitInfo" style="margin-top:15px; font-size:13px; color:#a8a8a8;">0 / 24,000 taps today</div>
-      </div>
-
-      <div class="card">
-        <h2 style="color:#d4af37; margin-bottom:16px; font-size: 18px;">🏆 Top Miners</h2>
-        <div id="leaderboardList">
-            <div style="text-align:center; color:#555; padding:20px; font-style: italic;">Syncing world data...</div>
-        </div>
-      </div>
-
-      <div class="card" style="text-align: center;">
-        <div id="walletStatus" style="padding:10px; border-radius:8px; background:rgba(255,107,107,0.1); color:#ff6b6b; font-size: 14px;">
-          Wallet Not Connected
-        </div>
-      </div>
-
+  <!-- Stats Grid -->
+  <div class="stats-row">
+    <div class="small-card">
+      <label>Today's Taps</label>
+      <span id="todayTaps">0</span>
+    </div>
+    <div class="small-card">
+      <label>Energy</label>
+      <span id="stockpile">50,000</span>
     </div>
   </div>
 
-  <script>
-    const STORAGE_KEY = 'lgc_miner_data_v1';
-    const DAILY_TAP_LIMIT = 24000;
-    const MAX_STOCKPILE = 50000;
-    const LGC_PER_TAP = 20;
-    const MIN_WITHDRAWAL = 150000;
+  <!-- Referrals -->
+  <div class="card">
+    <div class="card-title"><i data-lucide="users" style="width:18px;"></i> Referral Program</div>
+    <div class="ref-reward-tag">🎁 2,000 LGC + 10% of their earnings</div>
+    <p style="font-size: 13px; color: #a8a8a8; line-height: 1.4;">Invite friends via Telegram to boost your mining speed and earn permanent commissions.</p>
+    
+    <div id="refActionArea">
+      <button id="inviteBtn" class="tap-btn" style="background: #24A1DE; color: white; box-shadow: 0 4px 15px rgba(36, 161, 222, 0.3); margin-top: 15px;">
+        <i data-lucide="send" style="width:18px; display:inline; vertical-align:middle; margin-right:8px;"></i> INVITE ON TELEGRAM
+      </button>
+    </div>
+  </div>
 
-    let state = {
-      balance: 0,
-      todayTaps: 0,
-      stockpile: 50000,
-      lastTapDate: ""
-    };
+  <!-- Leaderboard Preview -->
+  <div class="card">
+    <div class="card-title"><i data-lucide="trophy" style="width:18px;"></i> Top Miners</div>
+    <div id="leaderboardList" style="font-size: 13px;">
+      <div style="text-align:center; color:#555; padding:10px; font-style: italic;">Loading data...</div>
+    </div>
+  </div>
 
-    let walletAddress = null;
-    let tonConnectUI = null;
+  <!-- Footer -->
+  <footer class="footer-links">
+    <a href="https://tonviewer.com/EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej" target="_blank" class="tonviewer-link">
+      <i data-lucide="database" style="width:12px;"></i> View Contract on Tonviewer
+    </a>
+    <p style="color: #333; font-size: 10px; margin-top: 10px;">LGC Miner v1.2.0 • Decentralized Farming</p>
+  </footer>
 
-    function showNotification(msg) {
-      const el = document.getElementById('notification');
-      el.textContent = msg;
-      el.style.display = 'block';
-      setTimeout(() => el.style.display = 'none', 3000);
-    }
+</div>
 
-    function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
+<script>
+  // --- Configuration ---
+  const CONFIG = {
+    DAILY_LIMIT: 24000,
+    MAX_ENERGY: 50000,
+    REGEN_RATE: 5,
+    PER_TAP: 20,
+    MIN_WITHDRAW: 150000,
+    REF_BONUS: 2000,
+    REF_COMMISSION: 0.1,
+    TG_BOT_URL: "https://t.me/LGCMinerBot"
+  };
 
-    function loadState() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) state = { ...state, ...JSON.parse(saved) };
-      updateUI();
-    }
+  let state = {
+    balance: 0,
+    todayTaps: 0,
+    energy: 50000,
+    wallet: null,
+    isFirstTime: true
+  };
 
-    async function syncToDatabase() {
-      if (!walletAddress) {
-        showNotification("Connect wallet to sync!");
-        return;
-      }
+  const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json',
+  });
 
-      if (state.balance < MIN_WITHDRAWAL) {
-        showNotification(`Need ${MIN_WITHDRAWAL.toLocaleString()} LGC to claim!`);
-        return;
-      }
-      
-      const claimBtn = document.getElementById('claimBtn');
+  // --- Core Functions ---
+  function notify(msg) {
+    const el = document.getElementById('notification');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  function updateUI() {
+    document.getElementById('balanceDisplay').textContent = state.balance.toLocaleString();
+    document.getElementById('todayTaps').textContent = state.todayTaps.toLocaleString();
+    document.getElementById('stockpile').textContent = state.energy.toLocaleString();
+    
+    // Progress
+    const progress = Math.min(100, (state.balance / CONFIG.MIN_WITHDRAW) * 100);
+    document.getElementById('withdrawProgress').style.width = `${progress}%`;
+    
+    // Buttons
+    const claimBtn = document.getElementById('claimBtn');
+    const minLabel = document.getElementById('minLabel');
+    
+    if (state.balance >= CONFIG.MIN_WITHDRAW) {
+      claimBtn.disabled = false;
+      claimBtn.classList.add('active');
+      minLabel.textContent = "Withdrawal Unlocked! 🚀";
+      minLabel.style.color = "#00ff64";
+    } else {
       claimBtn.disabled = true;
-      claimBtn.innerHTML = '<i data-lucide="refresh-cw" class="animate-spin"></i> SYNCING...';
-      lucide.createIcons();
+      claimBtn.classList.remove('active');
+      minLabel.textContent = `Goal: ${CONFIG.MIN_WITHDRAW.toLocaleString()} LGC for claim`;
+      minLabel.style.color = "#7a8a9a";
+    }
 
-      try {
-        const response = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: walletAddress,
-            score: state.balance
-          })
-        });
+    document.getElementById('tapBtn').disabled = state.energy <= 0 || state.todayTaps >= CONFIG.DAILY_LIMIT;
+  }
 
-        const result = await response.json();
-        if (result.success) {
-          showNotification("Progress Saved!");
-          renderLeaderboard(result.leaderboard);
-        }
-      } catch (e) {
-        showNotification("Sync Failed. Try again.");
-      } finally {
-        claimBtn.disabled = false;
-        claimBtn.innerHTML = '<i data-lucide="check-circle"></i> SYNC & CLAIM';
-        lucide.createIcons();
+  function handleTap(e) {
+    if (state.energy <= 0 || state.todayTaps >= CONFIG.DAILY_LIMIT) return;
+
+    state.energy--;
+    state.todayTaps++;
+    state.balance += CONFIG.PER_TAP;
+
+    // Visual feedback
+    const rect = e.target.getBoundingClientRect();
+    const x = e.clientX || (rect.left + rect.width / 2);
+    const y = e.clientY || (rect.top + 10);
+    
+    const float = document.createElement('div');
+    float.className = 'float-text';
+    float.textContent = `+${CONFIG.PER_TAP}`;
+    float.style.left = `${x - 20}px`;
+    float.style.top = `${y - 40}px`;
+    float.style.position = 'fixed';
+    document.body.appendChild(float);
+    setTimeout(() => float.remove(), 800);
+
+    if (navigator.vibrate) navigator.vibrate(5);
+    updateUI();
+    saveLocal();
+  }
+
+  async function syncProgress() {
+    if (!state.wallet) {
+      notify("Connect wallet first!");
+      tonConnectUI.openModal();
+      return;
+    }
+
+    const btn = document.getElementById('syncBtn');
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:16px;"></i> Syncing';
+    lucide.createIcons();
+
+    try {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: state.wallet, score: state.balance })
+      });
+      const data = await response.json();
+      if (data.success) {
+        notify("Database Synchronized!");
+        renderLeaderboard(data.leaderboard);
       }
+    } catch (err) {
+      notify("Sync failed. Checking local storage...");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalContent;
+      lucide.createIcons();
     }
+  }
 
-    function renderLeaderboard(list) {
-      const listEl = document.getElementById('leaderboardList');
-      if (!list || list.length === 0) return;
-      
-      listEl.innerHTML = list.map((item, index) => `
-        <div class="list-item">
-          <span>${index + 1}. ${item.wallet_address.slice(0,6)}...${item.wallet_address.slice(-4)}</span>
-          <span style="color:#00ff64;">${item.score.toLocaleString()} LGC</span>
-        </div>
-      `).join('');
+  function renderLeaderboard(list) {
+    const el = document.getElementById('leaderboardList');
+    if (!list) return;
+    el.innerHTML = list.map((item, i) => `
+      <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span>${i+1}. ${item.wallet_address.slice(0,6)}...</span>
+        <span style="color:#00ff64; font-weight:700;">${item.score.toLocaleString()}</span>
+      </div>
+    `).join('');
+  }
+
+  function handleInvite() {
+    if (!state.wallet) {
+      notify("Connect wallet to generate referral link!");
+      tonConnectUI.openModal();
+      return;
     }
+    const refLink = `${CONFIG.TG_BOT_URL}?start=${state.wallet}`;
+    const shareText = encodeURIComponent("🚀 Join me on LGC Miner! Farm tokens while the bridge lags. Get 2,000 LGC bonus instantly!\n\nJoin here: ");
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`, '_blank');
+  }
 
-    function handleTap() {
-      if (state.todayTaps >= DAILY_TAP_LIMIT || state.stockpile <= 0) return;
+  function saveLocal() {
+    localStorage.setItem('lgc_pro_state', JSON.stringify({
+      balance: state.balance,
+      todayTaps: state.todayTaps,
+      lastDate: new Date().toDateString()
+    }));
+  }
 
-      state.stockpile--;
-      state.todayTaps++;
-      state.balance += LGC_PER_TAP;
-
-      spawnFloatText(LGC_PER_TAP);
-      updateUI();
-      saveState();
-    }
-
-    function spawnFloatText(val) {
-      const float = document.createElement('div');
-      float.className = 'float-text';
-      float.textContent = `+${val}`;
-      float.style.left = `${Math.random() * 40 + 30}%`;
-      float.style.top = '40%';
-      document.getElementById('balanceSection').appendChild(float);
-      setTimeout(() => float.remove(), 1000);
-    }
-
-    function updateUI() {
-      document.getElementById('balanceValue').textContent = state.balance.toLocaleString();
-      document.getElementById('todayTaps').textContent = state.todayTaps.toLocaleString();
-      document.getElementById('stockpile').textContent = state.stockpile.toLocaleString();
-      document.getElementById('limitInfo').textContent = `${state.todayTaps.toLocaleString()} / ${DAILY_TAP_LIMIT.toLocaleString()} taps today`;
-      
-      // Update Progress Bar
-      const progress = Math.min(100, (state.balance / MIN_WITHDRAWAL) * 100);
-      document.getElementById('withdrawProgress').style.width = `${progress}%`;
-      
-      // Update Button state
-      const claimBtn = document.getElementById('claimBtn');
-      if (state.balance < MIN_WITHDRAWAL) {
-        claimBtn.disabled = true;
-        document.getElementById('minLabel').textContent = `Keep mining! ${Math.max(0, MIN_WITHDRAWAL - state.balance).toLocaleString()} LGC left to unlock claim.`;
+  function loadLocal() {
+    const saved = localStorage.getItem('lgc_pro_state');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.lastDate === new Date().toDateString()) {
+        state.todayTaps = data.todayTaps;
       } else {
-        claimBtn.disabled = false;
-        document.getElementById('minLabel').textContent = `Withdrawal Unlocked! 🚀`;
+        state.todayTaps = 0;
       }
+      state.balance = data.balance;
     }
 
-    window.onload = () => {
-      lucide.createIcons();
-      loadState();
+    // Check for referral bonus in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('start') && !localStorage.getItem('lgc_ref_claimed')) {
+      state.balance += CONFIG.REF_BONUS;
+      localStorage.setItem('lgc_ref_claimed', 'true');
+      notify(`Welcome! +${CONFIG.REF_BONUS} LGC Referral Bonus added.`);
+    }
+  }
 
-      tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-        manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json',
-      });
+  // --- Init ---
+  window.onload = () => {
+    lucide.createIcons();
+    loadLocal();
+    updateUI();
 
-      tonConnectUI.onStatusChange((wallet) => {
-        const statusEl = document.getElementById('walletStatus');
-        if (wallet) {
-          walletAddress = wallet.account.address;
-          statusEl.textContent = `Connected: ${walletAddress.slice(0,6)}...`;
-          statusEl.style.background = 'rgba(0,255,100,0.1)';
-          statusEl.style.color = '#00ff64';
-        } else {
-          walletAddress = null;
-          statusEl.textContent = 'Wallet Not Connected';
-          statusEl.style.background = 'rgba(255,107,107,0.1)';
-          statusEl.style.color = '#ff6b6b';
-        }
-      });
+    tonConnectUI.onStatusChange(wallet => {
+      const btn = document.getElementById('headerConnectBtn');
+      if (wallet) {
+        state.wallet = wallet.account.address;
+        btn.textContent = `${state.wallet.slice(0,4)}...${state.wallet.slice(-4)}`;
+        syncProgress();
+      } else {
+        state.wallet = null;
+        btn.textContent = "Connect Wallet";
+      }
+    });
 
-      document.getElementById('tapBtn').addEventListener('click', handleTap);
-      document.getElementById('claimBtn').addEventListener('click', syncToDatabase);
-      document.getElementById('headerConnectBtn').addEventListener('click', () => tonConnectUI.openModal());
+    document.getElementById('tapBtn').addEventListener('click', handleTap);
+    document.getElementById('syncBtn').addEventListener('click', syncProgress);
+    document.getElementById('inviteBtn').addEventListener('click', handleInvite);
+    document.getElementById('headerConnectBtn').addEventListener('click', () => {
+      if (state.wallet) tonConnectUI.disconnect();
+      else tonConnectUI.openModal();
+    });
 
-      // Regen stockpile
-      setInterval(() => {
-        if (state.stockpile < MAX_STOCKPILE) {
-          state.stockpile = Math.min(MAX_STOCKPILE, state.stockpile + 5);
-          document.getElementById('stockpile').textContent = state.stockpile.toLocaleString();
-        }
-      }, 5000);
-    };
-  </script>
+    // Energy Regen
+    setInterval(() => {
+      if (state.energy < CONFIG.MAX_ENERGY) {
+        state.energy = Math.min(CONFIG.MAX_ENERGY, state.energy + CONFIG.REGEN_RATE);
+        updateUI();
+      }
+    }, 3000);
+  };
+</script>
+
 </body>
 </html>
 
