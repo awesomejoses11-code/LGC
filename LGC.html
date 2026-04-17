@@ -3,95 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LGC</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
-        header {
-            background: #35424a;
-            color: #ffffff;
-            padding: 10px 0;
-            text-align: center;
-        }
-        main {
-            padding: 20px;
-        }
-        button {
-            background-color: #35424a;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        button:hover {
-            background-color: #418c99;
-        }
-    </style>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Your Title</title>
 </head>
 <body>
-    <header>
-        <h1>Welcome to LGC</h1>
-    </header>
-    <main>
-        <h2>Data Management</h2>
-        <form id="dataForm">
-            <label for="dataInput">Enter Data:</label>
-            <input type="text" id="dataInput" placeholder="Type here..." required>
-            <button type="submit">Submit</button>
-        </form>
-        <div id="responseMessage"></div>
-    </main>
-    <script>
-        // Implementing error handling and rate limiting
-        const form = document.getElementById('dataForm');
-        const responseMessage = document.getElementById('responseMessage');
-        let requestsCount = 0;
-        const rateLimit = 5; // Max requests per minute
-        const timeFrame = 60000;
-        let lastRequestTime = Date.now();
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (Date.now() < lastRequestTime + timeFrame && requestsCount >= rateLimit) {
-                responseMessage.textContent = 'Rate limit exceeded. Please wait a minute before trying again.';
-                return;
-            }
-            try {
-                const data = document.getElementById('dataInput').value;
-                // Perform storage operation
-                await storeData(data);
-                responseMessage.textContent = 'Data stored successfully!';
-                document.getElementById('dataInput').value = '';
-                requestsCount++;
-                if (Date.now() > lastRequestTime + timeFrame) {
-                    requestsCount = 1;
-                    lastRequestTime = Date.now();
-                }
-            } catch (error) {
-                responseMessage.textContent = 'Error while storing data: ' + error.message;
-            }
-        });
-
-        async function storeData(data) {
-            // Implementing persistent storage
-            try {
-                const response = await fetch('/store', { // Example endpoint
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ data })
-                });
-                if (!response.ok) throw new Error('Failed to store data.');
-            } catch (error) {
-                throw new Error('Network error: ' + error.message);
-            }
-        }
-    </script>
+    
 </body>
 </html>
