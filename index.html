@@ -1,12 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="favicon.png">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LGC • Join the Delay</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { background: #0a0a0a; color: #fff; font-family: system-ui; text-align: center; padding: 20px; }
+    h1 { color: #ffd700; } /* Gold for lag meme */
+    button { padding: 15px 30px; margin: 10px; font-size: 18px; border: none; border-radius: 12px; }
+    .mine-btn { background: #ffcc00; color: #000; }
+    .claim-btn { background: #00ff00; color: #000; }
+  </style>
 </head>
 <body>
+  <h1>🚧 The Bridge Was Lagging...</h1>
+  <p id="status">Pending tx detected. Time to farm LGC.</p>
+  
+  <button class="mine-btn" onclick="mineLGC()">Check Bridge • Mine LGC</button>
+  <p>Your balance: <span id="balance">0</span> LGC</p>
+  
+  <button class="claim-btn" onclick="claimLGC()">Claim & Withdraw to Wallet</button>
 
+  <script>
+    // Initialize Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand(); // Makes it full screen
+
+    let balance = 0;
+    const LGC_ADDRESS = "EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej"; // Your token
+
+    function mineLGC() {
+      // Simple timer simulation (every few hours in real version)
+      document.getElementById("status").innerText = "⏳ Bridge lagging... Mining LGC while you wait!";
+      balance += 10; // Fake 10 LGC per "check"
+      document.getElementById("balance").innerText = balance;
+      
+      // Later: call your backend here to record real rewards
+      tg.showAlert("LGC mined! The delay is paying off. 💰");
+    }
+
+    function claimLGC() {
+      if (balance <= 0) {
+        tg.showAlert("No LGC to claim yet. Keep mining while the tx is pending!");
+        return;
+      }
+      
+      // Real version: use TON Connect to send Jetton transfer
+      tg.showAlert(`Claiming ${balance} LGC to your wallet... (TON gas only)`);
+      
+      // TODO: Integrate TON Connect for real withdrawal
+      // balance = 0; // Reset after successful claim
+    }
+
+    // Show user info
+    console.log("User ID:", tg.initDataUnsafe.user?.id);
+  </script>
 </body>
 </html>
