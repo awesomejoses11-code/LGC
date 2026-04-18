@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LGC Miner • Pro Beta</title>
+
+  <!-- SDKs -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+    const firebaseConfig = JSON.parse(__firebase_config);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+    const CONFIG = { 
+        PER_TAP: 20, 
+        MAX_ENERGY: 50000, 
+        DAILY_LIMIT: 24000, 
+        MIN_CLAIM: 15000, 
+        BOT_URL: "https://t.me/LGCMinerBot",
+        TASK_REWARD: 5000,
+        VERIFY_TIME: 15000, 
+        REGEN_RATE: 1000    
+    };
+    
+    let state = { 
+        balance: 0, 
+        tapsToday: 0, 
+        energy: 50000, 
+        wallet: null, 
+        userId: null, 
+        isAuthReady: false, 
+        activeTab: 'mine',
+        tasks: { xFollow: false, tgJoin: false }
+    };
+
+    async function saveToCloud() {
+      if (!state.userId || !state.isAuthReady) return;
+      const icon = document.getElementById('syncIcon');
+      if (icon) icon.classList.add('spinning');
+      try {
+        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userStats', state.userId);
+        await setDoc(userDocRef, {
+          balance: state.balance,
+          tapsToday: state.tapsToday,
+          energy: state.energy,
+          wallet: state.wallet,
+          tasks: state.tasks,
+          lastSync: Date.now()
+        }, { merge: true });
+      } catch (e) { console.error("Cloud save failed:", e.message); }
+      finally { if (icon) setTimeout(() => icon.classList.remove('spinning'), 600); }
+    }
+
+    async function loadFromCloud(uid) {
+      if (!state.isAuthReady) return;
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'userStats', uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          state.balance = data.balance || 0;
+          state.tapsToday = data.tapsToday || 0;
+          state.energy = data.energy || CONFIG.MAX_ENERGY;
+          state.wallet = data.wallet || null;
+          state.tasks = data.tasks || { xFollow: false, tgJoin: false };
+          updateUI();
+          checkTaskStatus();
+        }
+      } catch (e) { console.error("Cloud load failed:", e.message); }
+    }
+
+    function switchTab(tabId) {
+        state.activeTab = tabId;
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(tabId + 'Page').classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+    }
+
+    function checkTaskStatus() {
+        const xBtn = document.getElementById('xTaskBtn');
+        if (state.tasks && state.tasks.xFollow) {
+            xBtn.textContent = "Claimed";
+            xBtn.disabled = true;
+            xBtn.classList.add('task-claimed');
+        }
+        const tgBtn = document.getElementById('tgTaskBtn');
+        if (state.tasks && state.tasks.tgJoin) {
+            tgBtn.textContent = "Claimed";
+            tgBtn.disabled = true;
+            tgBtn.classList.add('task-claimed');
+        }
+    }
+
+    function updateUI() {
+      document.querySelectorAll('.balance-val').forEach(el => el.textContent = Math.floor(state.balance).toLocaleString());
+      document.getElementById('tapsToday').textContent = state.tapsToday.toLocaleString();
+      document.getElementById('energyLeft').textContent = state.energy.toLocaleString();
+      
+      const progress = Math.min(100, (state.balance / CONFIG.MIN_CLAIM) * 100);
+      document.getElementById('withdrawProgress').style.width = `${progress}%`;
+      
+      const cBtn = document.getElementById('claimBtn');
+      if (state.balance >= CONFIG.MIN_CLAIM) {
+          cBtn.disabled = false;
+          cBtn.classList.add('active');
+          cBtn.innerHTML = '<i data-lucide="check-circle" style="width:16px;"></i> WITHDRAW NOW';
+          lucide.createIcons();
+      } else {
+          cBtn.disabled = true;
+          cBtn.classList.remove('active');
+          cBtn.innerHTML = 'CLAIM ALL';
+      }
+    }
+
+    function handleMining(e) {
+      if (state.energy <= 0 || state.tapsToday >= CONFIG.DAILY_LIMIT) return;
+      state.balance += CONFIG.PER_TAP;
+      state.tapsToday++;
+      state.energy--;
+      updateUI();
+      const touch = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      const float = document.createElement('div');
+      float.className = 'float-text';
+      float.textContent = `+${CONFIG.PER_TAP}`;
+      float.style.left = `${touch.clientX - 15}px`;
+      float.style.top = `${touch.clientY - 40}px`;
+      document.body.appendChild(float);
+      setTimeout(() => float.remove(), 700);
+      if (navigator.vibrate) navigator.vibrate(5);
+    }
+
+    async function init() {
+      lucide.createIcons();
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      state.userId = tg.initDataUnsafe?.user?.id?.toString() || "dev_user";
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          state.isAuthReady = true;
+          await loadFromCloud(state.userId);
+        }
+      });
+
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+
+      const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json'
+      });
+
+      tonConnectUI.onStatusChange(wallet => {
+        const btn = document.getElementById('headerConnectBtn');
+        state.wallet = wallet ? wallet.account.address : null;
+        btn.textContent = state.wallet ? (state.wallet.slice(0,3) + ".." + state.wallet.slice(-3)) : "Connect";
+      });
+
+      document.getElementById('tapBtn').addEventListener('touchstart', (e) => { e.preventDefault(); handleMining(e); }, {passive: false});
+      document.getElementById('syncBtn').onclick = saveToCloud;
+      document.getElementById('headerConnectBtn').onclick = () => {
+        if (state.wallet) tonConnectUI.disconnect(); else tonConnectUI.openModal();
+      };
+      
+      document.querySelectorAll('.nav-item').forEach(item => {
+          item.onclick = () => switchTab(item.dataset.tab);
+      });
+
+      document.getElementById('claimBtn').onclick = () => {
+        if(!state.wallet) { tg.showAlert("Connect wallet first!"); return; }
+        tg.showConfirm(`Withdraw ${state.balance} LGC?`, (ok) => { if(ok) tg.showAlert("Withdrawal recorded."); });
+      };
+
+      document.getElementById('inviteBtn').onclick = () => {
+        const link = `${CONFIG.BOT_URL}?start=${state.userId}`;
+        const text = encodeURIComponent("🚀 Join LGC Miner and get 2,000 bonus LGC!");
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${text}`, '_blank');
+      };
+
+      const runTask = (url, btnId, stateKey) => {
+        if (state.tasks[stateKey]) return;
+        window.open(url, "_blank");
+        const btn = document.getElementById(btnId);
+        btn.disabled = true;
+        let timeLeft = CONFIG.VERIFY_TIME / 1000;
+        const timer = setInterval(() => {
+            timeLeft--;
+            btn.textContent = `${timeLeft}s`;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                state.balance += CONFIG.TASK_REWARD;
+                state.tasks[stateKey] = true;
+                updateUI();
+                checkTaskStatus();
+                saveToCloud();
+                tg.showAlert(`Task Complete! +${CONFIG.TASK_REWARD} LGC`);
+            }
+        }, 1000);
+      };
+
+      document.getElementById('xTaskBtn').onclick = () => runTask("https://x.com/Joses_Iker", 'xTaskBtn', 'xFollow');
+      document.getElementById('tgTaskBtn').onclick = () => runTask("https://t.me/PrimeChat001", 'tgTaskBtn', 'tgJoin');
+
+      setInterval(saveToCloud, 30000); 
+      setInterval(() => {
+        if(state.energy < CONFIG.MAX_ENERGY) {
+          state.energy = Math.min(CONFIG.MAX_ENERGY, state.energy + 1);
+          updateUI();
+        }
+      }, CONFIG.REGEN_RATE);
+    }
+    window.onload = init;
+  </script>
+
+  <style>
+    :root { --gold: #d4af37; --bg-dark: #0b0f13; --card-bg: rgba(26, 40, 71, 0.45); --green: #00ff64; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background: radial-gradient(circle at top, #1a2847 0%, #0b0f13 100%); color: #fff; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; }
+    
+    .app-container { height: 100%; display: flex; flex-direction: column; padding: 16px; padding-bottom: 90px; }
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .logo-box { display: flex; align-items: center; gap: 8px; }
+    .logo-circle { width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--gold); background: rgba(212, 175, 55, 0.1); }
+    .beta-tag { opacity: 0.4; font-size: 8px; text-transform: uppercase; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px; }
+    
+    .connect-btn { background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--gold); padding: 8px 12px; border-radius: 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
+    .page-content { flex: 1; overflow-y: auto; }
+    .page { display: none; width: 100%; height: 100%; }
+    .page.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .balance-section { background: rgba(26, 40, 71, 0.4); border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 24px; padding: 20px; text-align: center; margin-bottom: 16px; backdrop-filter: blur(10px); }
+    .balance-value { font-size: 40px; font-weight: 800; color: var(--gold); }
+    .progress-wrap { height: 6px; background: rgba(0,0,0,0.4); border-radius: 10px; margin: 12px 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #008f39, var(--green)); width: 0%; transition: width 0.5s ease; }
+    
+    /* Adjusted Mining Button */
+    .tap-btn { width: 100%; height: 75px; border: none; border-radius: 16px; font-size: 16px; font-weight: 800; background: linear-gradient(135deg, var(--gold), #f0e68c); color: #1a2847; margin-top: 10px; cursor: pointer; }
+    .claim-btn { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.2); margin-top: 10px; font-weight: 700; font-size: 13px; }
+    .claim-btn.active { background: var(--green); color: #000; border: none; }
+
+    .card { background: var(--card-bg); border-radius: 20px; padding: 16px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .task-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .task-item:last-child { border-bottom: none; }
+    .task-info { display: flex; gap: 12px; align-items: center; }
+    .task-icon { width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--gold); }
+    .reward { color: var(--green); font-weight: 700; font-size: 12px; }
+    
+    /* Adjusted Task Buttons */
+    .task-btn { background: var(--gold); color: #000; border: none; padding: 8px 0; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; width: 85px; text-align: center; }
+    .task-claimed { opacity: 0.3 !important; background: transparent !important; border: 1px solid #fff !important; color: #fff !important; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: #0b0f13; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #555; font-size: 10px; font-weight: 600; cursor: pointer; }
+    .nav-item.active { color: var(--gold); }
+    .nav-item i { width: 22px; height: 22px; }
+
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .small-card { background: var(--card-bg); border-radius: 16px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .small-card label { font-size: 9px; color: #7a8a9a; display: block; margin-bottom: 4px; font-weight: 700; }
+    .small-card span { font-size: 15px; font-weight: 700; }
+
+    .float-text { position: fixed; color: var(--gold); font-weight: 900; font-size: 24px; pointer-events: none; animation: floatUp 0.7s forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 2000; }
+    @keyframes floatUp { 100% { opacity: 0; transform: translateY(-80px); } }
+    .spinning { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <header class="header-top">
+    <div class="logo-box">
+        <div class="logo-circle">LGC</div>
+        <span class="beta-tag">BETA</span>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <button class="connect-btn" id="syncBtn"><i data-lucide="refresh-cw" id="syncIcon" style="width:12px;"></i> Sync</button>
+        <button class="connect-btn" id="headerConnectBtn">Connect</button>
+    </div>
+  </header>
+  
+  <div class="page-content">
+      <div id="minePage" class="page active">
+        <section class="balance-section">
+            <p style="color: #7a8a9a; font-size: 10px; font-weight: 700;">BALANCE</p>
+            <h1 class="balance-value balance-val">0</h1>
+            <div class="progress-wrap"><div id="withdrawProgress" class="progress-fill"></div></div>
+            <p style="font-size: 9px; color: #555;">Min. Withdrawal: 15,000 LGC</p>
+            <button id="tapBtn" class="tap-btn">⚡ START MINING</button>
+            <button id="claimBtn" class="claim-btn" disabled>CLAIM ALL</button>
+        </section>
+        <div class="stats-row">
+            <div class="small-card"><label>TAPS TODAY</label><span id="tapsToday">0</span></div>
+            <div class="small-card"><label>ENERGY LEFT</label><span id="energyLeft">50,000</span></div>
+        </div>
+      </div>
+
+      <div id="earnPage" class="page">
+          <h2 style="margin-bottom:15px; font-size: 18px;">Earn Tasks</h2>
+          <div class="card">
+              <div class="task-item">
+                  <div class="task-info">
+                      <div class="task-icon"><i data-lucide="twitter"></i></div>
+                      <div>
+                          <div style="font-size:12px; font-weight:600;">Follow @Joses_Iker</div>
+                          <div class="reward">+5,000 LGC</div>
+                      </div>
+                  </div>
+                  <button id="xTaskBtn" class="task-btn">Follow</button>
+              </div>
+              <div class="task-item">
+                  <div class="task-info">
+                      <div class="task-icon"><i data-lucide="send"></i></div>
+                      <div>
+                          <div style="font-size:12px; font-weight:600;">Join LGC Portal</div>
+                          <div class="reward">+5,000 LGC</div>
+                      </div>
+                  </div>
+                  <button id="tgTaskBtn" class="task-btn">Join</button>
+              </div>
+          </div>
+          <p style="font-size: 10px; color: #555; text-align: center;">Wait 15s for verification.</p>
+      </div>
+
+      <div id="friendsPage" class="page">
+          <h2 style="margin-bottom:15px; font-size: 18px;">Friends</h2>
+          <div class="card" style="text-align: center; padding: 25px;">
+              <div style="color: var(--gold); font-size: 28px; font-weight: 800; margin-bottom: 5px;">2,000 LGC</div>
+              <p style="color: #888; font-size: 11px; margin-bottom: 20px;">For every active referral</p>
+              <button id="inviteBtn" class="tap-btn" style="height:50px; font-size: 14px; margin-top: 0;">INVITE FRIENDS</button>
+          </div>
+      </div>
+  </div>
+
+  <nav class="bottom-nav">
+      <div class="nav-item active" data-tab="mine"><i data-lucide="pickaxe"></i><span>Mine</span></div>
+      <div class="nav-item" data-tab="earn"><i data-lucide="layers"></i><span>Earn</span></div>
+      <div class="nav-item" data-tab="friends"><i data-lucide="users"></i><span>Friends</span></div>
+  </nav>
+</div>
+</body>
+</html>
