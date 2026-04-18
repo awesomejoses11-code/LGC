@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LGC Miner • Pro Edition</title>
+
+  <!-- Open Graph / Link Preview Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lgcminer.vercel.app/">
+  <meta property="og:title" content="LGC Miner • The Bridge Was Lagging">
+  <meta property="og:description" content="🎁 +2,000 LGC Sign-up Bonus! Mine tokens while you wait for the bridge. ⚡">
+  <meta property="og:image" content="https://lgcminer.vercel.app/preview-image.png">
+
+  <!-- External SDKs -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+
+  <style>
+    :root {
+      --gold: #d4af37;
+      --gold-light: #f0e68c;
+      --bg-dark: #0b0f13;
+      --card-bg: rgba(26, 40, 71, 0.45);
+      --glass: rgba(255, 255, 255, 0.03);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    body { 
+      background: radial-gradient(circle at top, #1a2847 0%, #0b0f13 100%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-wrapper { padding: 16px; max-width: 500px; margin: 0 auto; width: 100%; flex: 1; }
+
+    /* Header */
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-top: 8px; }
+    .logo-box { display: flex; align-items: center; gap: 10px; }
+    .logo-circle {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: linear-gradient(135deg, #1a3a52 0%, #2d5a7b 100%);
+      border: 1.5px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: var(--gold);
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+    }
+    
+    .connect-btn {
+      background: var(--glass); border: 1px solid rgba(212, 175, 55, 0.3);
+      color: var(--gold); padding: 8px 16px; border-radius: 10px;
+      font-size: 13px; font-weight: 600; cursor: pointer; backdrop-filter: blur(10px);
+    }
+
+    /* Balance Section */
+    .balance-section {
+      background: linear-gradient(180deg, rgba(45, 90, 123, 0.2) 0%, rgba(26, 40, 71, 0.4) 100%);
+      border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 28px;
+      padding: 30px 20px; text-align: center; margin-bottom: 20px;
+      backdrop-filter: blur(15px); box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    .balance-label { color: #7a8a9a; font-size: 11px; letter-spacing: 2px; font-weight: 700; }
+    .balance-value { font-size: 48px; font-weight: 800; color: var(--gold); margin: 5px 0; }
+
+    .progress-wrap { height: 6px; background: rgba(0,0,0,0.3); border-radius: 10px; margin: 16px 0 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #00ff64; width: 0%; transition: width 0.5s ease; }
+
+    .tap-btn {
+      width: 100%; padding: 18px; border: none; border-radius: 16px;
+      font-size: 17px; font-weight: 800; cursor: pointer;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+      color: #1a2847; margin-top: 15px; box-shadow: 0 8px 20px rgba(212, 175, 55, 0.25);
+    }
+    .tap-btn:active { transform: scale(0.97); }
+    .tap-btn:disabled { opacity: 0.4; filter: grayscale(1); pointer-events: none; }
+
+    .secondary-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .action-btn {
+      padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03); color: #fff; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .action-btn.active { background: #00ff64; color: #000; border: none; }
+
+    /* Stats Grid */
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .small-card { background: var(--card-bg); border-radius: 16px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .small-card label { display: block; font-size: 10px; color: #7a8a9a; font-weight: 600; }
+    .small-card span { font-size: 17px; font-weight: 700; }
+
+    /* Referral Card */
+    .card { background: var(--card-bg); border-radius: 20px; padding: 18px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .invite-btn {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      background: #24A1DE; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px;
+    }
+
+    /* Footer */
+    .footer-links { text-align: center; padding: 20px 0; margin-top: auto; }
+    .tonviewer-link { color: #444; font-size: 11px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+    .float-text {
+      position: fixed; color: var(--gold); font-weight: 900; font-size: 26px;
+      pointer-events: none; animation: floatUp 0.7s ease-out forwards; z-index: 100;
+    }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-80px); } }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+  <header class="header-top">
+    <div class="logo-box">
+        <div class="logo-circle">LGC</div>
+        <div style="font-size: 12px; color: #a8a8a8; font-weight: 600;">LGC Miner Pro</div>
+    </div>
+    <button class="connect-btn" id="headerConnectBtn">Connect</button>
+  </header>
+
+  <section class="balance-section">
+    <p class="balance-label">MINING BALANCE</p>
+    <h1 class="balance-value" id="balanceDisplay">0</h1>
+    
+    <div class="progress-wrap">
+      <div id="withdrawProgress" class="progress-fill"></div>
+    </div>
+    <p id="minLabel" style="font-size: 11px; color: #7a8a9a;">Goal: 150,000 LGC for claim</p>
+
+    <button id="tapBtn" class="tap-btn">⚡ START MINING</button>
+    
+    <div class="secondary-btns">
+      <button class="action-btn" id="syncBtn">
+        <i data-lucide="refresh-cw" style="width:14px;"></i> Sync
+      </button>
+      <button class="action-btn" id="claimBtn" disabled>
+        <i data-lucide="external-link" style="width:14px;"></i> Claim
+      </button>
+    </div>
+  </section>
+
+  <div class="stats-row">
+    <div class="small-card">
+      <label>Today's Taps</label>
+      <span id="tapsToday">0</span>
+    </div>
+    <div class="small-card">
+      <label>Energy</label>
+      <span id="energyLeft">50,000</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="color: var(--gold); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+        <i data-lucide="users" style="width:16px;"></i> Referral Program
+    </div>
+    <p style="font-size: 12px; color: #888; line-height: 1.4;">Get 2,000 LGC instantly + 10% commission from your friends' mining output.</p>
+    <button id="inviteBtn" class="invite-btn">
+      <i data-lucide="send" style="width:16px;"></i> INVITE FRIENDS
+    </button>
+  </div>
+
+  <footer class="footer-links">
+    <a href="https://tonviewer.com/EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej" target="_blank" class="tonviewer-link">
+      <i data-lucide="shield-check" style="width:12px;"></i> View Contract on Tonviewer
+    </a>
+  </footer>
+</div>
+
+<script>
+  // Game Logic
+  const CONFIG = {
+    DAILY_LIMIT: 24000,
+    MAX_ENERGY: 50000,
+    REGEN: 5,
+    PER_TAP: 20,
+    MIN_CLAIM: 150000,
+    BOT_URL: "https://t.me/LGCMinerBot"
+  };
+
+  let state = {
+    balance: 0,
+    tapsToday: 0,
+    energy: 50000,
+    wallet: null
+  };
+
+  let tonConnectUI;
+
+  // Integrated Claim Logic
+  async function claimLGC() {
+    const tg = window.Telegram.WebApp;
+    const userId = tg.initDataUnsafe?.user?.id;
+    const userWallet = state.wallet;
+
+    if (!userId || !userWallet) {
+      tg.showAlert("Please connect your TON wallet first!");
+      return;
+    }
+
+    try {
+      tg.showConfirm("Preparing claim...\nYou will pay 0.1 TON flat gas fee. Proceed?", async (ok) => {
+        if (!ok) return;
+
+        const response = await fetch('https://lgcminer.app/api/claim-lgc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: userId.toString(),
+            claimed_amount: state.balance,
+            user_wallet_address: userWallet
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.transaction) {
+          const result = await tonConnectUI.sendTransaction(data.transaction);
+          tg.showAlert(`✅ ${data.message || 'LGC claimed and sent!'}`);
+          // Reset local balance after success if desired:
+          // state.balance = 0; updateUI();
+        } else {
+          tg.showAlert(data.error || "Claim failed.");
+        }
+      });
+    } catch (err) {
+      tg.showAlert("Transaction rejected or network error.");
+    }
+  }
+
+  function updateUI() {
+    document.getElementById('balanceDisplay').textContent = state.balance.toLocaleString();
+    document.getElementById('tapsToday').textContent = state.tapsToday.toLocaleString();
+    document.getElementById('energyLeft').textContent = state.energy.toLocaleString();
+    
+    const progress = Math.min(100, (state.balance / CONFIG.MIN_CLAIM) * 100);
+    document.getElementById('withdrawProgress').style.width = `${progress}%`;
+    
+    const cBtn = document.getElementById('claimBtn');
+    cBtn.disabled = state.balance < CONFIG.MIN_CLAIM;
+    if (!cBtn.disabled) cBtn.classList.add('active');
+    else cBtn.classList.remove('active');
+
+    document.getElementById('tapBtn').disabled = state.energy <= 0 || state.tapsToday >= CONFIG.DAILY_LIMIT;
+  }
+
+  function handleMining(e) {
+    if (state.energy <= 0 || state.tapsToday >= CONFIG.DAILY_LIMIT) return;
+
+    state.energy--;
+    state.tapsToday++;
+    state.balance += CONFIG.PER_TAP;
+
+    // Visuals
+    const touch = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    const float = document.createElement('div');
+    float.className = 'float-text';
+    float.textContent = `+${CONFIG.PER_TAP}`;
+    float.style.left = `${touch.clientX - 15}px`;
+    float.style.top = `${touch.clientY - 40}px`;
+    document.body.appendChild(float);
+    setTimeout(() => float.remove(), 700);
+
+    if (navigator.vibrate) navigator.vibrate(5);
+    updateUI();
+  }
+
+  async function init() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    
+    // Expand to full view
+    window.Telegram.WebApp.expand();
+    window.Telegram.WebApp.ready();
+
+    tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json'
+    });
+
+    tonConnectUI.onStatusChange(wallet => {
+      const btn = document.getElementById('headerConnectBtn');
+      if (wallet) {
+        state.wallet = wallet.account.address;
+        btn.textContent = state.wallet.slice(0,4) + "..." + state.wallet.slice(-4);
+      } else {
+        state.wallet = null;
+        btn.textContent = "Connect";
+      }
+    });
+
+    // Events
+    const tapBtn = document.getElementById('tapBtn');
+    tapBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleMining(e); }, {passive: false});
+    tapBtn.addEventListener('mousedown', (e) => { if(!('ontouchstart' in window)) handleMining(e); });
+
+    document.getElementById('headerConnectBtn').onclick = () => {
+      if (state.wallet) tonConnectUI.disconnect();
+      else tonConnectUI.openModal();
+    };
+
+    document.getElementById('claimBtn').onclick = claimLGC;
+
+    document.getElementById('inviteBtn').onclick = () => {
+      const link = `${CONFIG.BOT_URL}?start=${state.wallet || 'user'}`;
+      const text = encodeURIComponent("🚀 Mine $LGC with me while the bridge lags! 🎁 Get 2,000 bonus:");
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${text}`, '_blank');
+    };
+
+    // Energy Regen
+    setInterval(() => {
+      if (state.energy < CONFIG.MAX_ENERGY) {
+        state.energy = Math.min(CONFIG.MAX_ENERGY, state.energy + CONFIG.REGEN);
+        updateUI();
+      }
+    }, 4000);
+
+    updateUI();
+  }
+
+  window.onload = init;
+</script>
+</body>
+  </html>
