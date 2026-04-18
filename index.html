@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LGC Miner • Pro Beta</title>
+
+  <!-- SDKs -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+
+  <!-- Firebase (Backend-less Storage) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+    const firebaseConfig = JSON.parse(__firebase_config);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+    const CONFIG = { PER_TAP: 20, MAX_ENERGY: 50000, DAILY_LIMIT: 24000, MIN_CLAIM: 15000, BOT_URL: "https://t.me/LGCMinerBot" };
+    let state = { balance: 0, tapsToday: 0, energy: 50000, wallet: null, userId: null, isAuthReady: false };
+
+    async function saveToCloud() {
+      if (!state.userId || !state.isAuthReady) return;
+      const icon = document.getElementById('syncIcon');
+      if (icon) icon.classList.add('spinning');
+      try {
+        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userStats', state.userId);
+        await setDoc(userDocRef, {
+          balance: state.balance,
+          tapsToday: state.tapsToday,
+          energy: state.energy,
+          wallet: state.wallet,
+          lastSync: Date.now()
+        }, { merge: true });
+      } catch (e) { console.error("Cloud save failed:", e.message); }
+      finally { if (icon) setTimeout(() => icon.classList.remove('spinning'), 600); }
+    }
+
+    async function loadFromCloud(uid) {
+      if (!state.isAuthReady) return;
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'userStats', uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          state.balance = data.balance || 0;
+          state.tapsToday = data.tapsToday || 0;
+          state.energy = data.energy || CONFIG.MAX_ENERGY;
+          state.wallet = data.wallet || null;
+          updateUI();
+        }
+      } catch (e) { console.error("Cloud load failed:", e.message); }
+    }
+
+    function updateUI() {
+      document.getElementById('balanceDisplay').textContent = state.balance.toLocaleString();
+      document.getElementById('tapsToday').textContent = state.tapsToday.toLocaleString();
+      document.getElementById('energyLeft').textContent = state.energy.toLocaleString();
+      
+      const progress = Math.min(100, (state.balance / CONFIG.MIN_CLAIM) * 100);
+      document.getElementById('withdrawProgress').style.width = `${progress}%`;
+      
+      const cBtn = document.getElementById('claimBtn');
+      if (state.balance >= CONFIG.MIN_CLAIM) {
+          cBtn.disabled = false;
+          cBtn.classList.add('active');
+          cBtn.innerHTML = '<i data-lucide="check-circle" style="width:16px;"></i> WITHDRAW NOW';
+          lucide.createIcons();
+      } else {
+          cBtn.disabled = true;
+          cBtn.classList.remove('active');
+          cBtn.innerHTML = 'CLAIM ALL';
+      }
+    }
+
+    function handleMining(e) {
+      if (state.energy <= 0 || state.tapsToday >= CONFIG.DAILY_LIMIT) return;
+      state.balance += CONFIG.PER_TAP;
+      state.tapsToday++;
+      state.energy--;
+      updateUI();
+      const touch = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      const float = document.createElement('div');
+      float.className = 'float-text';
+      float.textContent = `+${CONFIG.PER_TAP}`;
+      float.style.left = `${touch.clientX - 15}px`;
+      float.style.top = `${touch.clientY - 40}px`;
+      document.body.appendChild(float);
+      setTimeout(() => float.remove(), 700);
+      if (navigator.vibrate) navigator.vibrate(5);
+    }
+
+    async function init() {
+      lucide.createIcons();
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      state.userId = tg.initDataUnsafe?.user?.id?.toString() || "dev_test_user";
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          state.isAuthReady = true;
+          await loadFromCloud(state.userId);
+        }
+      });
+
+      const initAuth = async () => {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      };
+      await initAuth();
+
+      const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json'
+      });
+
+      tonConnectUI.onStatusChange(wallet => {
+        const btn = document.getElementById('headerConnectBtn');
+        state.wallet = wallet ? wallet.account.address : null;
+        btn.textContent = state.wallet ? (state.wallet.slice(0,3) + ".." + state.wallet.slice(-3)) : "Connect";
+      });
+
+      document.getElementById('tapBtn').addEventListener('touchstart', (e) => { e.preventDefault(); handleMining(e); }, {passive: false});
+      document.getElementById('tapBtn').onclick = (e) => { if(!('ontouchstart' in window)) handleMining(e); };
+      document.getElementById('syncBtn').onclick = saveToCloud;
+      document.getElementById('headerConnectBtn').onclick = () => {
+        if (state.wallet) tonConnectUI.disconnect(); else tonConnectUI.openModal();
+      };
+
+      document.getElementById('claimBtn').onclick = () => {
+        if(!state.wallet) { tg.showAlert("Connect wallet first!"); return; }
+        tg.showConfirm(`Withdraw ${state.balance} LGC?`, (ok) => { if(ok) tg.showAlert("Processing withdrawal..."); });
+      };
+
+      document.getElementById('inviteBtn').onclick = () => {
+        const link = `${CONFIG.BOT_URL}?start=${state.userId}`;
+        const text = encodeURIComponent("🚀 Mine $LGC with me! 🎁 Get 2,000 bonus:");
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${text}`, '_blank');
+      };
+
+      setInterval(saveToCloud, 30000);
+      setInterval(() => {
+        if(state.energy < CONFIG.MAX_ENERGY) {
+          state.energy = Math.min(CONFIG.MAX_ENERGY, state.energy + 5);
+          updateUI();
+        }
+      }, 4000);
+    }
+    window.onload = init;
+  </script>
+
+  <style>
+    :root { --gold: #d4af37; --bg-dark: #0b0f13; --card-bg: rgba(26, 40, 71, 0.45); --green: #00ff64; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background: radial-gradient(circle at top, #1a2847 0%, #0b0f13 100%); color: #fff; font-family: -apple-system, sans-serif; min-height: 100vh; padding: 16px; overflow-x: hidden; }
+    .app-wrapper { max-width: 500px; margin: 0 auto; width: 100%; }
+    
+    .beta-tag { opacity: 0.3; font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: #fff; margin-left: 6px; font-weight: 700; }
+    
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .logo-box { display: flex; align-items: center; gap: 8px; }
+    .logo-circle { width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--gold); background: rgba(212, 175, 55, 0.1); }
+    
+    .connect-btn { background: rgba(255,255,255,0.03); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--gold); padding: 8px 14px; border-radius: 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; backdrop-filter: blur(5px); }
+    
+    .balance-section { background: rgba(26, 40, 71, 0.4); border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 28px; padding: 30px 20px; text-align: center; margin-bottom: 20px; backdrop-filter: blur(10px); }
+    .balance-value { font-size: 48px; font-weight: 800; color: var(--gold); text-shadow: 0 0 20px rgba(212, 175, 55, 0.3); }
+    
+    .progress-wrap { height: 8px; background: rgba(0,0,0,0.4); border-radius: 10px; margin: 20px 0; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #008f39, var(--green)); width: 0%; transition: width 0.5s ease; }
+    
+    .tap-btn { width: 100%; padding: 20px; border: none; border-radius: 18px; font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--gold), #f0e68c); color: #1a2847; margin-top: 10px; cursor: pointer; transition: transform 0.1s; box-shadow: 0 8px 20px rgba(212, 175, 55, 0.2); }
+    .tap-btn:active { transform: scale(0.96); }
+    
+    .claim-btn { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #666; margin-top: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .claim-btn.active { background: var(--green); color: #000; border: none; cursor: pointer; box-shadow: 0 0 15px rgba(0, 255, 100, 0.4); }
+    
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .small-card { background: var(--card-bg); border-radius: 16px; padding: 14px; border: 1px solid rgba(255,255,255,0.05); }
+    .small-card label { display: block; font-size: 10px; color: #7a8a9a; margin-bottom: 6px; letter-spacing: 1px; font-weight: 700; }
+    .small-card span { font-size: 18px; font-weight: 700; color: #fff; }
+
+    .card { background: var(--card-bg); border-radius: 20px; padding: 18px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .invite-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; background: #24A1DE; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
+
+    .tonviewer-link { color: #444; font-size: 11px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 20px 0; opacity: 0.6; }
+
+    .float-text { position: fixed; color: var(--gold); font-weight: 900; font-size: 28px; pointer-events: none; animation: floatUp 0.7s forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-100px); } }
+    .spinning { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+  <header class="header-top">
+    <div class="logo-box">
+        <div class="logo-circle">LGC</div>
+        <span class="beta-tag">BETA</span>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <button class="connect-btn" id="syncBtn"><i data-lucide="refresh-cw" id="syncIcon" style="width:14px;"></i> Sync</button>
+        <button class="connect-btn" id="headerConnectBtn">Connect</button>
+    </div>
+  </header>
+  
+  <section class="balance-section">
+    <p style="color: #7a8a9a; font-size: 11px; font-weight: 700; letter-spacing: 1px;">MINING BALANCE</p>
+    <h1 class="balance-value" id="balanceDisplay">0</h1>
+    <div class="progress-wrap"><div id="withdrawProgress" class="progress-fill"></div></div>
+    <p style="font-size: 11px; color: #555; margin-bottom: 10px;">Min. Withdrawal: 15,000 LGC</p>
+    <button id="tapBtn" class="tap-btn">⚡ START MINING</button>
+    <button id="claimBtn" class="claim-btn" disabled>CLAIM ALL</button>
+  </section>
+  
+  <div class="stats-row">
+    <div class="small-card"><label>TAPS TODAY</label><span id="tapsToday">0</span></div>
+    <div class="small-card"><label>ENERGY LEFT</label><span id="energyLeft">50,000</span></div>
+  </div>
+
+  <div class="card">
+    <div style="color: var(--gold); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+        <i data-lucide="users" style="width:16px;"></i> Referral Program
+    </div>
+    <p style="font-size: 12px; color: #888; line-height: 1.4;">Get 2,000 LGC instantly + 10% commission from friends.</p>
+    <button id="inviteBtn" class="invite-btn"><i data-lucide="send" style="width:16px;"></i> INVITE FRIENDS</button>
+  </div>
+
+  <a href="https://tonviewer.com/EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej" target="_blank" class="tonviewer-link">
+    <i data-lucide="shield-check" style="width:12px;"></i> View Contract on Tonviewer
+  </a>
+</div>
+</body>
+      </html>
