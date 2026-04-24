@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LGC Miner • Pro Edition</title>
+
+  <!-- Open Graph / Link Preview Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lgcminer.vercel.app/">
+  <meta property="og:title" content="LGC Miner • Pro Edition">
+  <meta property="og:description" content="🎁 +2,000 LGC Bonus! Mine tokens while the bridge lags. ⚡">
+
+  <!-- External SDKs -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+
+  <style>
+    :root {
+      --gold: #d4af37;
+      --gold-light: #f0e68c;
+      --bg-dark: #0b0f13;
+      --card-bg: rgba(26, 40, 71, 0.45);
+      --text-muted: #8e9aaf;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 0%, #1a2847 0%, #0b0f13 70%);
+      color: #fff;
+      margin: 0;
+      font-family: -apple-system, system-ui, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app-container {
+      max-width: 500px;
+      margin: 0 auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .logo-group { display: flex; align-items: center; gap: 10px; }
+    .logo-circle {
+      width: 40px; height: 40px;
+      border: 2px solid var(--gold);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; color: var(--gold);
+      background: rgba(212, 175, 55, 0.1);
+    }
+
+    /* TonConnect Button Custom Positioning */
+    #headerConnectBtn { 
+      min-width: 140px; 
+      display: flex; 
+      justify-content: flex-end; 
+    }
+    
+    /* Ensure the SDK button blends with the Pro UI */
+    #headerConnectBtn div {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .page { display: none; flex: 1; overflow-y: auto; padding-bottom: 100px; }
+    .page.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .mining-card {
+      background: var(--card-bg);
+      border-radius: 32px;
+      padding: 30px 20px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+    }
+    .balance-label { color: var(--text-muted); font-size: 12px; letter-spacing: 1px; margin-bottom: 5px; }
+    .balance-value { font-size: 48px; font-weight: 800; color: var(--gold); margin: 0; }
+    
+    .tap-area {
+      width: 100%;
+      height: 70px;
+      background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 100%);
+      border-radius: 20px;
+      border: none;
+      color: #000;
+      font-weight: 900;
+      font-size: 18px;
+      margin-top: 25px;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+      transition: transform 0.1s;
+    }
+    .tap-area:active { transform: scale(0.98); }
+
+    .energy-container { margin-top: 25px; text-align: left; }
+    .energy-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; }
+    .energy-bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+    .energy-fill { height: 100%; background: var(--gold); width: 100%; transition: width 0.3s; }
+
+    .task-card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .task-info h4 { margin: 0; font-size: 14px; }
+    .task-info p { margin: 4px 0 0; font-size: 12px; color: var(--gold); font-weight: bold; }
+    .claim-btn {
+      background: rgba(255,255,255,0.1);
+      border: none; color: #fff;
+      padding: 8px 16px; border-radius: 10px;
+      font-weight: bold; cursor: pointer;
+    }
+    .claim-btn.done { opacity: 0.3; cursor: default; background: #222; }
+
+    nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 80px; background: #0b0f13;
+      display: flex; justify-content: space-around; align-items: center;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 15px;
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center;
+      color: var(--text-muted); font-size: 10px; font-weight: bold; gap: 5px; cursor: pointer;
+    }
+    .nav-item.active { color: var(--gold); }
+
+    .float-text {
+      position: fixed; color: var(--gold); font-weight: 900; font-size: 32px;
+      pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 1000;
+    }
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-120px); } }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <header>
+    <div class="logo-group">
+      <div class="logo-circle">L</div>
+      <div style="font-size: 14px; font-weight: bold;">LGC MINER <span style="color:var(--gold); font-size: 10px;">PRO</span></div>
+    </div>
+    <div id="headerConnectBtn"></div>
+  </header>
+
+  <main>
+    <section id="minePage" class="page active">
+      <div class="mining-card">
+        <p class="balance-label">AVAILABLE BALANCE</p>
+        <h1 class="balance-value" id="balanceText">0</h1>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Minimum Claim: 15,000 LGC</p>
+        
+        <button id="tapBtn" class="tap-area">MINE LGC</button>
+        
+        <div class="energy-container">
+          <div class="energy-header">
+            <span>ENERGY</span>
+            <span id="energyText">50,000 / 50,000</span>
+          </div>
+          <div class="energy-bar">
+            <div id="energyFill" class="energy-fill"></div>
+          </div>
+        </div>
+
+        <button id="mainClaimBtn" style="width:100%; margin-top:20px; padding:12px; border-radius:12px; border:1px solid #333; background:none; color:var(--text-muted); font-weight:bold; cursor:not-allowed;" disabled>CLAIM TO WALLET</button>
+      </div>
+    </section>
+
+    <section id="earnPage" class="page">
+      <h3 style="margin-bottom: 20px;">Earn Points</h3>
+      <div id="taskList"></div>
+    </section>
+
+    <section id="friendsPage" class="page">
+      <div class="mining-card" style="text-align: left;">
+        <h3>Invite Friends</h3>
+        <p style="color:var(--text-muted); font-size: 13px;">Earn 2,000 LGC instantly for each friend who joins.</p>
+        <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:15px; margin: 20px 0; font-family: monospace; font-size: 11px; word-break: break-all; border: 1px solid rgba(212,175,55,0.2);" id="refLinkText">
+          https://t.me/LGCMinerBot?start=...
+        </div>
+        <button id="inviteBtn" class="tap-area" style="margin-top:0;">INVITE A FRIEND</button>
+        
+        <p style="font-size: 10px; color: var(--text-muted); margin-top: 20px; text-align: center;">
+            View Proof of Concept: <br>
+            <a href="https://tonviewer.com/EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej" target="_blank" style="color: var(--gold); text-decoration: none; font-weight: bold;">Tonviewer Address</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <div class="nav-item active" data-tab="mine"><i data-lucide="pickaxe"></i>MINE</div>
+    <div class="nav-item" data-tab="earn"><i data-lucide="list-checks"></i>EARN</div>
+    <div class="nav-item" data-tab="friends"><i data-lucide="users"></i>FRIENDS</div>
+  </nav>
+</div>
+
+<script>
+  const CONFIG = {
+    PER_TAP: 20,
+    MAX_ENERGY: 50000,
+    MIN_CLAIM: 15000,
+    REGEN_RATE: 5,
+    REF_BONUS: 2000,
+    BOT_URL: "https://t.me/LGCMinerBot",
+    BOT_TOKEN: "8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso",
+    TON_VIEWER: "https://tonviewer.com/EQDQzJMIMkb_oGNQMDPukE4vmqaeTiDZrJbKKP1OfohSiqej"
+  };
+
+  let tonConnectUI;
+  let state = {
+    balance: 0,
+    energy: 50000,
+    wallet: null,
+    tasksClaimed: [],
+    refBonusClaimed: false
+  };
+
+  function saveData() {
+    localStorage.setItem('lgc_pro_v7_state', JSON.stringify(state));
+  }
+
+  function loadData() {
+    const saved = localStorage.getItem('lgc_pro_v7_state');
+    if (saved) {
+      state = { ...state, ...JSON.parse(saved) };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('start') && !state.refBonusClaimed) {
+      state.balance += CONFIG.REF_BONUS;
+      state.refBonusClaimed = true;
+      notify(`Referral Bonus: +${CONFIG.REF_BONUS} LGC!`);
+      saveData();
+    }
+  }
+
+  function updateUI() {
+    document.getElementById('balanceText').textContent = Math.floor(state.balance).toLocaleString();
+    document.getElementById('energyText').textContent = `${Math.floor(state.energy).toLocaleString()} / ${CONFIG.MAX_ENERGY.toLocaleString()}`;
+    document.getElementById('energyFill').style.width = `${(state.energy / CONFIG.MAX_ENERGY) * 100}%`;
+    
+    const claim = document.getElementById('mainClaimBtn');
+    if (state.balance >= CONFIG.MIN_CLAIM) {
+      claim.style.color = "#fff";
+      claim.style.borderColor = "var(--gold)";
+      claim.style.background = "rgba(212,175,55,0.1)";
+      claim.disabled = false;
+      claim.style.cursor = "pointer";
+    }
+
+    renderTasks();
+    const displayId = state.wallet ? state.wallet.slice(0,6) : 'user';
+    document.getElementById('refLinkText').textContent = `${CONFIG.BOT_URL}?start=${displayId}`;
+  }
+
+  function renderTasks() {
+    const TASKS = [
+      { id: 'tg_chan', label: 'Join Official Telegram', reward: 5000 },
+      { id: 'x_follow', label: 'Follow Dev on X', reward: 3000 },
+      { id: 'tonviewer', label: 'Verify LGC Status', reward: 2000 }
+    ];
+    const list = document.getElementById('taskList');
+    list.innerHTML = '';
+    TASKS.forEach(task => {
+      const isClaimed = state.tasksClaimed.includes(task.id);
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.innerHTML = `
+        <div class="task-info">
+          <h4>${task.label}</h4>
+          <p>+${task.reward.toLocaleString()} LGC</p>
+        </div>
+        <button class="claim-btn ${isClaimed ? 'done' : ''}" onclick="doTask('${task.id}', ${task.reward})">
+          ${isClaimed ? 'Done' : 'Claim'}
+        </button>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  window.doTask = (id, reward) => {
+    if (state.tasksClaimed.includes(id)) return;
+    if (id === 'tonviewer') window.open(CONFIG.TON_VIEWER, '_blank');
+    
+    state.tasksClaimed.push(id);
+    state.balance += reward;
+    notify(`Task Complete: +${reward} LGC`);
+    saveData();
+    updateUI();
+  };
+
+  function notify(msg) {
+    const n = document.createElement('div');
+    n.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--gold); color:#000; padding:10px 20px; border-radius:10px; font-weight:bold; z-index:2000; box-shadow: 0 4px 15px rgba(0,0,0,0.3);";
+    n.textContent = msg;
+    document.body.appendChild(n);
+    setTimeout(() => n.remove(), 2500);
+  }
+
+  function handleMining(e) {
+    if (state.energy < CONFIG.PER_TAP) return;
+    state.balance += CONFIG.PER_TAP;
+    state.energy -= CONFIG.PER_TAP;
+    
+    const touch = e.touches ? e.touches[0] : e;
+    const f = document.createElement('div');
+    f.className = 'float-text';
+    f.textContent = `+${CONFIG.PER_TAP}`;
+    f.style.left = `${touch.clientX}px`;
+    f.style.top = `${touch.clientY}px`;
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 800);
+
+    saveData();
+    updateUI();
+  }
+
+  window.onload = () => {
+    lucide.createIcons();
+    loadData();
+
+    // TonConnect Initialization
+    try {
+      tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+        manifestUrl: 'https://lgcminer.vercel.app/tonconnect-manifest.json',
+        buttonRootId: 'headerConnectBtn'
+      });
+
+      tonConnectUI.onStatusChange(wallet => {
+        if (wallet) {
+          state.wallet = wallet.account.address;
+          notify("Wallet Linked Successfully");
+        } else {
+          state.wallet = null;
+        }
+        updateUI();
+      });
+    } catch(e) {
+      console.warn("TON Connect UI failed", e);
+    }
+
+    // Navigation logic
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.onclick = () => {
+        const tab = item.dataset.tab;
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(tab + 'Page').classList.add('active');
+        item.classList.add('active');
+      };
+    });
+
+    const tapBtn = document.getElementById('tapBtn');
+    tapBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleMining(e); }, {passive: false});
+    tapBtn.addEventListener('mousedown', (e) => { if(!('ontouchstart' in window)) handleMining(e); });
+
+    document.getElementById('inviteBtn').onclick = () => {
+      const link = `${CONFIG.BOT_URL}?start=${state.wallet || 'user'}`;
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("🎁 Mine $LGC with me! Get 2,000 bonus coins instantly!")}`, '_blank');
+    };
+
+    document.getElementById('mainClaimBtn').onclick = () => {
+        window.open(CONFIG.TON_VIEWER, '_blank');
+        notify("Verifying balance on chain...");
+    };
+
+    // Auto-regen energy every 3 seconds
+    setInterval(() => {
+      if (state.energy < CONFIG.MAX_ENERGY) {
+        state.energy = Math.min(CONFIG.MAX_ENERGY, state.energy + CONFIG.REGEN_RATE);
+        updateUI();
+      }
+    }, 3000);
+
+    updateUI();
+  };
+</script>
+</body>
+</html>
+
+```
