@@ -1,7 +1,5 @@
 {
   "url": "https://lgcminer.vercel.app",
   "name": "LGC Miner",
-  "iconUrl": "https://lgcminer.vercel.app/logo.png",
-  "termsOfUseUrl": "https://lgcminer.vercel.app/terms.html",
-  "privacyPolicyUrl": "https://lgcminer.vercel.app/privacy.html"
+  "iconUrl": "https://raw.githubusercontent.com/ton-connect/demo-dapp-with-react-ui/master/public/tc-logo.png"
 }
