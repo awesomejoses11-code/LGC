@@ -191,6 +191,17 @@ const saveState = (s) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify({
 // ═══════════════════════════════════════════════════
 // GAME STATE — load or default
 // ═══════════════════════════════════════════════════
+// Clear stale cached friendlyAddress that may be in old hex format
+(()=>{
+    try {
+        const s = JSON.parse(localStorage.getItem('lgc_miner_state')||'{}');
+        if (s.friendlyAddress && s.friendlyAddress.startsWith('0:')) {
+            s.friendlyAddress = null;
+            localStorage.setItem('lgc_miner_state', JSON.stringify(s));
+        }
+    } catch {}
+})();
+
 const saved = loadState();
 let bal  = saved?.bal  ?? 0;
 let maxE = saved?.maxE ?? 1000;
@@ -212,21 +223,43 @@ if (saved?.lastSaved) {
 // ═══════════════════════════════════════════════════
 let tonUI = null;
 
+// Convert raw TON address (0:hexhex) → UQ friendly base64url
+function rawToFriendly(raw) {
+    try {
+        const hex = raw.includes(':') ? raw.split(':')[1] : raw;
+        const workchain = raw.includes(':') ? parseInt(raw.split(':')[0]) : 0;
+        // Build 36-byte packet: [0x11, workchain, 32 addr bytes, 2 crc bytes]
+        const addrBytes = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) addrBytes[i] = parseInt(hex.substr(i*2,2),16);
+        const pkg = new Uint8Array(36);
+        pkg[0] = 0x11; // non-bounceable flag
+        pkg[1] = workchain & 0xFF;
+        pkg.set(addrBytes, 2);
+        // CRC-16/BUYPASS
+        let crc = 0;
+        for (let i = 0; i < 34; i++) {
+            crc ^= pkg[i] << 8;
+            for (let j = 0; j < 8; j++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+        }
+        crc &= 0xFFFF;
+        pkg[34] = (crc >> 8) & 0xFF;
+        pkg[35] = crc & 0xFF;
+        // base64url encode
+        let b64 = btoa(String.fromCharCode(...pkg));
+        return b64.replace(/\+/g,'-').replace(/\//g,'_');
+    } catch(e) {
+        return raw; // fallback to raw if conversion fails
+    }
+}
+
 window.onload = () => {
     tonUI = new TON_CONNECT_UI.TonConnectUI({ manifestUrl: MANIFEST_URL });
 
     tonUI.onStatusChange((wallet) => {
         if (wallet) {
             walletAddress   = wallet.account.address;
-            // Use SDK Address utility to get proper UQ/EQ friendly format
-            try {
-                friendlyAddress = TON_CONNECT_UI.Address.parse(walletAddress).toString({
-                    bounceable: false,
-                    urlSafe: true
-                });
-            } catch {
-                friendlyAddress = wallet.account.friendlyAddress || walletAddress;
-            }
+            // Convert raw 0:hex address → UQ... (non-bounceable, base64url)
+            friendlyAddress = rawToFriendly(wallet.account.address);
             setWalletUI(friendlyAddress);
         } else {
             walletAddress = friendlyAddress = null;
@@ -267,8 +300,8 @@ window.toggleWalletMenu = () => {
     document.getElementById('wallet-menu').classList.toggle('open');
 };
 window.copyAddress = () => {
-    navigator.clipboard.writeText(friendlyAddress || walletAddress)
-        .then(() => showToast('Address copied! 📋'));
+    const addr = friendlyAddress || walletAddress;
+    copyToClipboard(addr);
     closeWalletMenu();
 };
 window.disconnectWallet = () => {
@@ -381,8 +414,29 @@ window.switchTab = (id) => {
 
 window.copyR = () => {
     const link = $('ref-l').innerText;
-    if (link.includes('http')) navigator.clipboard.writeText(link).then(() => showToast('Link copied! 📋'));
+    if (link.includes('http')) copyToClipboard(link);
 };
+
+// Robust clipboard — works inside Telegram webview
+function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(() => showToast('Copied! 📋'))
+            .catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
+}
+function fallbackCopy(text) {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0';
+    document.body.appendChild(el);
+    el.focus(); el.select();
+    try { document.execCommand('copy'); showToast('Copied! 📋'); }
+    catch { showToast('Long-press to copy manually'); }
+    document.body.removeChild(el);
+}
 
 function showToast(msg) {
     let t = $('toast');
