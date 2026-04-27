@@ -218,7 +218,15 @@ window.onload = () => {
     tonUI.onStatusChange((wallet) => {
         if (wallet) {
             walletAddress   = wallet.account.address;
-            friendlyAddress = wallet.account.friendlyAddress || walletAddress;
+            // Use SDK Address utility to get proper UQ/EQ friendly format
+            try {
+                friendlyAddress = TON_CONNECT_UI.Address.parse(walletAddress).toString({
+                    bounceable: false,
+                    urlSafe: true
+                });
+            } catch {
+                friendlyAddress = wallet.account.friendlyAddress || walletAddress;
+            }
             setWalletUI(friendlyAddress);
         } else {
             walletAddress = friendlyAddress = null;
