@@ -1,49 +1,75 @@
 <p align="center">
-  <img src="banner.png" alt="Bridge Was Lagging - LGC Miner" width="700"/>
+  <img src="icon.png" alt="LGC Miner - Tap to Earn $LGC on TON" width="700"/>
 </p>
 
-<p align="center">
-  <a href="https://t.me/LGC_Miner_Bot"><img src="https://img.shields.io/badge/Start_Tapping-Telegram-blue?style=for-the-badge&logo=telegram" /></a>
-  <a href="https://lgcminer.vercel.app"><img src="https://img.shields.io/badge/Dashboard-Web-black?style=for-the-badge&logo=vercel" /></a>
-  <a href="https://t.me/PrimeChat001"><img src="https://img.shields.io/badge/Join_Community-Telegram-2CA5E0?style=for-the-badge&logo=telegram" /></a>
-</p>
+<div align="center">
 
-LGC Miner ⛏️
+[![Launch Mini App](https://img.shields.io/badge/Launch_Mini_App-0088CC?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/LGC_Miner_Bot)
+[![Live Dashboard](https://img.shields.io/badge/Live_Dashboard-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://lgcminer.vercel.app/)
+[![View Contract](https://img.shields.io/badge/View_Contract-0098EA?style=for-the-badge&logo=ton&logoColor=white)](https://tonscan.org/jetton/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j)
+[![Join Community](https://img.shields.io/badge/Join_Community-229ED9?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/PrimeChat001)
 
-*Bridge was lagging. We fixed it. Tap to mine LGC.*  
-*Mini App*: https://t.me/LGC_Miner_Bot  
-*Web*: https://lgcminer.vercel.app  
-*Community*: https://t.me/PrimeChat001
+</div>
 
-What is LGC Miner
-LGC Miner is a Telegram Mini App. No commands, no setup. Hit `/start`, open the app, and tap to earn LGC. No pending tx, no explorer refreshes. Track everything on the web dashboard.
+<div align="center">
 
-How It Works
-1. *Launch*: https://t.me/LGC_Miner_Bot → `/start`
-2. *Open Mini App*: Tap "Launch LGC Miner" button
-3. *Tap to Mine*: Earn LGC per tap. Complete tasks for boosts
-4. *Track*: Live balance + referrals at https://lgcminer.vercel.app
+**LGC Miner ⛏️**
 
-Features
-- *Telegram Mini App*: One tap launch, runs inside TG
-- *Tap mining*: Simple tap-to-earn mechanics
-- *Task system*: Daily tasks + boosts inside the app
-- *Web dashboard*: Real-time balance + referrals at https://lgcminer.vercel.app
-- *Referral system*: Invite friends, earn % of their mining
-- *Zero hardware*: No CPU/GPU load, no lag
+*The bridge was lagging. We fixed it.*  
+*Tap to mine $LGC — the token for every TON degen with a pending tx.*
 
-Getting Started
-The only command you need: `/start`
+</div>
 
-All mining, wallet setup, referrals, and withdrawals happen inside the Mini App UI.
+## 🚀 About LGC Miner
 
-Links
-*Mini App*: https://t.me/LGC_Miner_Bot  
-*Website*: https://lgcminer.vercel.app  
-*Official Group*: https://t.me/PrimeChat001
+**LGC Miner** is a fun Telegram Mini App play-to-earn game built on the **TON Network**.
 
-Support
-Questions? Drop them in https://t.me/PrimeChat001. Found a bug? Open an issue.
+Turn frustrating bridge delays and pending transactions into real gains.  
+Stop refreshing the explorer — start tapping and mining $LGC.
 
-Disclaimer
-LGC Miner is a TG Mini App game. Earnings depend on activity + referrals. Not financial advice.
+## 🎮 How to Start Mining
+
+1. **Launch the Bot**: [https://t.me/LGC_Miner_Bot](https://t.me/LGC_Miner_Bot) → Send `/start`
+2. **Mine for Free**: Open the Mini App and tap the big button to earn $LGC
+3. **Complete Tasks & Referrals**: Get 2x–5x boosts and earn from friends you invite
+4. **Withdraw**: Go to the [Dashboard](https://lgcminer.vercel.app/) and claim your $LGC (0.1 TON gas fee)
+
+## 💎 Features
+
+- **Instant Telegram Mini App** — No downloads, runs inside Telegram
+- **Free Mining** — Tap to earn with zero hardware requirements
+- **Real On-Chain $LGC** — Fully verified Jetton on TON
+- **Tasks + Referral System** — Daily tasks and passive earnings from referrals
+- **Live Dashboard** — Real-time balance and stats at [lgcminer.vercel.app](https://lgcminer.vercel.app/)
+- **Easy Withdrawals** — Send earned $LGC to your Tonkeeper/MyTonWallet (0.1 TON flat gas fee)
+
+## 📊 Token Details
+
+- **Network**: TON
+- **Contract Address**: `EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j`
+- **Explorer**: [View on Tonscan](https://tonscan.org/jetton/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j)
+
+## 🔗 Links
+
+- **Mini App**: [t.me/LGC_Miner_Bot](https://t.me/LGC_Miner_Bot)
+- **Dashboard**: [lgcminer.vercel.app](https://lgcminer.vercel.app/)
+- **Community**: [t.me/PrimeChat001](https://t.me/PrimeChat001)
+- **Contract**: [tonscan.org/jetton/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j](https://tonscan.org/jetton/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j)
+
+## 💬 Community & Support
+
+Questions, feedback, or bugs? Join the community:  
+[https://t.me/PrimeChat001](https://t.me/PrimeChat001)
+
+## ⚠️ Disclaimer
+
+LGC Miner is a community-driven Telegram play-to-earn game. $LGC is a meme/community token on the TON blockchain.  
+Earnings depend on your activity and referrals. This is **not financial advice**. Always DYOR.
+
+---
+
+<div align="center">
+
+*Stop waiting for the bridge. Start mining the lag.* ⏳🚀
+
+</div>.
