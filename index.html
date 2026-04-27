@@ -205,30 +205,46 @@
         tonUI.onStatusChange((wallet) => {
             const btn = document.getElementById('wallet-btn');
             if (wallet) {
+                // wallet.account.address is raw hex — use friendlyAddress (UQ format) if available
                 walletAddress = wallet.account.address;
-                const short = walletAddress.slice(0,4) + '…' + walletAddress.slice(-4);
+                const friendly = wallet.account.friendlyAddress || walletAddress;
+                const short = friendly.slice(0,6) + '…' + friendly.slice(-4);
                 btn.textContent = short;
+                btn.title = friendly;
                 btn.style.background = 'rgba(255,215,0,0.15)';
+                btn.onclick = () => {
+                    if (walletAddress) {
+                        navigator.clipboard.writeText(friendly).then(() => showToast('Address copied! 📋'));
+                    } else {
+                        tonUI.openModal();
+                    }
+                };
                 document.getElementById('wallet-warning').classList.add('hidden');
-                // Show referral link
-                document.getElementById('ref-l').innerText = `https://t.me/LGC_Miner_Bot?start=${walletAddress}`;
+                document.getElementById('ref-l').innerText = `https://t.me/LGC_Miner_Bot?start=${friendly}`;
                 document.getElementById('no-wallet-msg').classList.add('hidden');
                 document.getElementById('ref-card').classList.remove('hidden');
             } else {
                 walletAddress = null;
                 btn.textContent = 'Connect Wallet';
+                btn.title = '';
                 btn.style.background = 'rgba(255,215,0,0.08)';
+                btn.onclick = () => tonUI.openModal();
                 document.getElementById('ref-card').classList.add('hidden');
                 document.getElementById('no-wallet-msg').classList.remove('hidden');
             }
-            sv(); // save wallet state
+            sv();
         });
 
-        // Restore referral link if wallet was saved
+        // Restore referral link if wallet was saved from localStorage
         if (walletAddress) {
             const btn = document.getElementById('wallet-btn');
-            btn.textContent = walletAddress.slice(0,4) + '…' + walletAddress.slice(-4);
+            const short = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
+            btn.textContent = short;
+            btn.title = walletAddress;
             btn.style.background = 'rgba(255,215,0,0.15)';
+            btn.onclick = () => {
+                navigator.clipboard.writeText(walletAddress).then(() => showToast('Address copied! 📋'));
+            };
             document.getElementById('ref-l').innerText = `https://t.me/LGC_Miner_Bot?start=${walletAddress}`;
             document.getElementById('no-wallet-msg').classList.add('hidden');
             document.getElementById('ref-card').classList.remove('hidden');
