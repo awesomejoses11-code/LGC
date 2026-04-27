@@ -170,7 +170,7 @@
         catch(e) { return null; }
     }
     function saveState(s) {
-        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastUpdated: Date.now() })); }
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastSaved: Date.now() })); }
         catch(e) {}
     }
 
@@ -340,7 +340,33 @@
         upd(); svDebounced();
     }
 
-    setInterval(() => { if (en < maxE) { en = Math.min(maxE, en + 3); upd(); } }, 1000);
+    // ── Offline regen — energy earned while app was closed ─
+    const REGEN_PER_SEC = 3;
+    if (saved && saved.lastSaved) {
+        const secsAway = Math.floor((Date.now() - saved.lastSaved) / 1000);
+        if (secsAway > 0) {
+            const gained = Math.min(secsAway * REGEN_PER_SEC, maxE - en);
+            en = Math.min(maxE, en + gained);
+        }
+    }
+
+    // ── Live regen — 3 energy per second while open ─────
+    setInterval(() => {
+        if (en < maxE) { en = Math.min(maxE, en + REGEN_PER_SEC); upd(); }
+    }, 1000);
+
+    // ── Save timestamp whenever state is written ─────────
+    function saveState(s) {
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastSaved: Date.now() })); }
+        catch(e) {}
+    }
+
+    // ── Save when user backgrounds or closes the app ─────
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') sv();
+    });
+    window.addEventListener('pagehide', sv);
+
     setInterval(sv, 30000);
 
     window.switchTab = (id) => {
