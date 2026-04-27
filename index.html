@@ -232,7 +232,7 @@ function rawToFriendly(raw) {
         const addrBytes = new Uint8Array(32);
         for (let i = 0; i < 32; i++) addrBytes[i] = parseInt(hex.substr(i*2,2),16);
         const pkg = new Uint8Array(36);
-        pkg[0] = 0x11; // non-bounceable flag
+        pkg[0] = 0x51; // 0x51 = non-bounceable UQ format
         pkg[1] = workchain & 0xFF;
         pkg.set(addrBytes, 2);
         // CRC-16/BUYPASS
