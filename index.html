@@ -7,25 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #05070A; color: white; touch-action: manipulation; margin: 0; overflow: hidden; }
-        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); }
-        .nav-link.active { color: #FFD700; border-top: 2px solid #FFD700; }
-        .tab-content { height: calc(100vh - 160px); overflow-y: auto; padding: 20px 16px; }
-        .tap-float { position: fixed; color: #FFD700; font-weight: 800; font-size: 24px; pointer-events: none; animation: float-up 0.8s ease-out forwards; z-index: 100; }
-        @keyframes float-up { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-100px); opacity: 0; } }
-        .task-done { opacity: 0.4; pointer-events: none; }
-        .task-done button { background: #444 !important; color: #aaa !important; }
-        #wallet-btn { font-size: 11px; font-weight: 700; background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.3); color: #FFD700; padding: 6px 14px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
-        #wallet-btn:active { opacity: 0.7; }
+        *{box-sizing:border-box}
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:#05070A;color:white;touch-action:manipulation;margin:0;overflow:hidden}
+        .glass{background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06)}
+        .nav-link.active{color:#FFD700;border-top:2px solid #FFD700}
+        .tab-content{height:calc(100vh - 160px);overflow-y:auto;padding:20px 16px}
+        .tap-float{position:fixed;color:#FFD700;font-weight:800;font-size:24px;pointer-events:none;animation:float-up 0.8s ease-out forwards;z-index:100}
+        @keyframes float-up{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-100px);opacity:0}}
+        .task-done{opacity:0.4;pointer-events:none}
+        .task-done button{background:#444!important;color:#aaa!important}
+        #wallet-btn{font-size:11px;font-weight:700;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);color:#FFD700;padding:6px 14px;border-radius:10px;cursor:pointer;white-space:nowrap}
+        #wallet-btn:active{opacity:0.7}
+        /* Wallet dropdown menu */
+        #wallet-menu{position:absolute;top:64px;right:16px;background:#111318;border:1px solid rgba(255,215,0,0.2);border-radius:14px;z-index:200;min-width:180px;overflow:hidden;display:none}
+        #wallet-menu.open{display:block}
+        #wallet-menu button{width:100%;padding:14px 18px;text-align:left;font-size:12px;font-weight:700;color:white;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px}
+        #wallet-menu button:hover{background:rgba(255,255,255,0.05)}
+        #wallet-menu button.danger{color:#ff5c5c}
+        #wallet-menu hr{border-color:rgba(255,255,255,0.06);margin:0}
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
     <!-- Top nav -->
-    <nav class="p-4 flex justify-between items-center glass border-b border-white/5 z-50">
+    <nav class="p-4 flex justify-between items-center glass border-b border-white/5 z-50" style="position:relative">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-[#FFD700] flex items-center justify-center text-black shadow-[0_0_15px_rgba(255,215,0,0.3)]">
                 <i class="fa-solid fa-gem"></i>
@@ -35,8 +42,13 @@
                 <p id="rank" class="text-xs font-bold text-[#FFD700]">Iron Miner</p>
             </div>
         </div>
-        <!-- Manual wallet button — works reliably without buttonRootId -->
-        <button id="wallet-btn" onclick="handleWalletBtn()">Connect Wallet</button>
+        <button id="wallet-btn" onclick="toggleWalletMenu()">Connect Wallet</button>
+        <!-- Wallet dropdown -->
+        <div id="wallet-menu">
+            <button onclick="copyAddress()"><i class="fa-solid fa-copy text-[#FFD700]"></i> Copy Address</button>
+            <hr>
+            <button class="danger" onclick="disconnectWallet()"><i class="fa-solid fa-right-from-bracket"></i> Disconnect</button>
+        </div>
     </nav>
 
     <main class="flex-1">
@@ -102,7 +114,7 @@
                 <div class="bg-yellow-500/10 p-3 rounded-xl text-[10px] text-yellow-500 uppercase font-bold text-center">
                     Fee: 0.1 TON Gas · Min: 15,000 LGC
                 </div>
-                <div class="text-center text-white/40 text-xs">Your balance: <span id="bal-w" class="text-white font-bold">0</span> LGC</div>
+                <div class="text-center text-white/40 text-xs">Balance: <span id="bal-w" class="text-white font-bold">0</span> LGC</div>
                 <input type="number" id="w-amt" placeholder="Enter LGC amount" class="w-full bg-black/40 p-4 rounded-2xl border border-white/10 outline-none text-white">
                 <button onclick="payout()" class="w-full bg-[#FFD700] text-black font-black py-5 rounded-2xl shadow-lg uppercase tracking-tight">
                     Pay 0.1 TON &amp; Withdraw
@@ -160,254 +172,220 @@
         <button onclick="switchTab('social')"   class="nav-link flex flex-1 flex-col items-center gap-1"><i class="fa-solid fa-users"></i><span class="text-[9px] font-black">FRIENDS</span></button>
     </nav>
 
-    <script>
-    // ═══════════════════════════════════════════
-    // STORAGE — localStorage, zero config
-    // ═══════════════════════════════════════════
-    const SAVE_KEY = 'lgc_miner_state';
-    function loadState() {
-        try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; }
-        catch(e) { return null; }
-    }
-    function saveState(s) {
-        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastSaved: Date.now() })); }
-        catch(e) {}
-    }
+<script>
+// ═══════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════
+const SAVE_KEY      = 'lgc_miner_state';
+const REGEN_PER_SEC = 3;
+const RECV_ADDR     = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
+const TG_URL        = 'https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage';
+const MANIFEST_URL  = 'https://raw.githubusercontent.com/awesomejoses11-code/LGC/refs/heads/main/tonconnect-manifest.json';
 
-    // ═══════════════════════════════════════════
-    // GAME STATE
-    // ═══════════════════════════════════════════
-    let bal = 0, en = 1000, maxE = 1000, tap = 10, cl = [], lvls = { mt: 1, en: 1 };
-    let walletAddress = null;
-    let tonUI = null;
-    let saveTimeout = null;
+// ═══════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════
+const loadState = () => { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } };
+const saveState = (s) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastSaved: Date.now() })); } catch {} };
 
-    const saved = loadState();
-    if (saved) {
-        bal           = saved.bal           ?? 0;
-        en            = saved.en            ?? 1000;
-        maxE          = saved.maxE          ?? 1000;
-        tap           = saved.tap           ?? 10;
-        cl            = saved.cl            ?? [];
-        lvls          = saved.lvls          ?? { mt: 1, en: 1 };
-        walletAddress = saved.walletAddress ?? null;
-    }
+// ═══════════════════════════════════════════════════
+// GAME STATE — load or default
+// ═══════════════════════════════════════════════════
+const saved = loadState();
+let bal  = saved?.bal  ?? 0;
+let maxE = saved?.maxE ?? 1000;
+let tap  = saved?.tap  ?? 10;
+let cl   = saved?.cl   ?? [];
+let lvls = saved?.lvls ?? { mt:1, en:1 };
+let walletAddress = saved?.walletAddress ?? null;
+let friendlyAddress = saved?.friendlyAddress ?? walletAddress;
 
-    // ═══════════════════════════════════════════
-    // TON CONNECT — same pattern as reference file
-    // No buttonRootId. Manual button calls openModal/disconnect.
-    // ═══════════════════════════════════════════
-    window.onload = function() {
-        tonUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://raw.githubusercontent.com/awesomejoses11-code/LGC/refs/heads/main/tonconnect-manifest.json'
-        });
+// Offline energy regen
+let en = saved?.en ?? 1000;
+if (saved?.lastSaved) {
+    const secsAway = Math.floor((Date.now() - saved.lastSaved) / 1000);
+    en = Math.min(maxE, en + secsAway * REGEN_PER_SEC);
+}
 
-        tonUI.onStatusChange((wallet) => {
-            const btn = document.getElementById('wallet-btn');
-            if (wallet) {
-                // wallet.account.address is raw hex — use friendlyAddress (UQ format) if available
-                walletAddress = wallet.account.address;
-                const friendly = wallet.account.friendlyAddress || walletAddress;
-                const short = friendly.slice(0,6) + '…' + friendly.slice(-4);
-                btn.textContent = short;
-                btn.title = friendly;
-                btn.style.background = 'rgba(255,215,0,0.15)';
-                btn.onclick = () => {
-                    if (walletAddress) {
-                        navigator.clipboard.writeText(friendly).then(() => showToast('Address copied! 📋'));
-                    } else {
-                        tonUI.openModal();
-                    }
-                };
-                document.getElementById('wallet-warning').classList.add('hidden');
-                document.getElementById('ref-l').innerText = `https://t.me/LGC_Miner_Bot?start=${friendly}`;
-                document.getElementById('no-wallet-msg').classList.add('hidden');
-                document.getElementById('ref-card').classList.remove('hidden');
-            } else {
-                walletAddress = null;
-                btn.textContent = 'Connect Wallet';
-                btn.title = '';
-                btn.style.background = 'rgba(255,215,0,0.08)';
-                btn.onclick = () => tonUI.openModal();
-                document.getElementById('ref-card').classList.add('hidden');
-                document.getElementById('no-wallet-msg').classList.remove('hidden');
-            }
-            sv();
-        });
+// ═══════════════════════════════════════════════════
+// TON CONNECT
+// ═══════════════════════════════════════════════════
+let tonUI = null;
 
-        // Restore referral link if wallet was saved from localStorage
-        if (walletAddress) {
-            const btn = document.getElementById('wallet-btn');
-            const short = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
-            btn.textContent = short;
-            btn.title = walletAddress;
-            btn.style.background = 'rgba(255,215,0,0.15)';
-            btn.onclick = () => {
-                navigator.clipboard.writeText(walletAddress).then(() => showToast('Address copied! 📋'));
-            };
-            document.getElementById('ref-l').innerText = `https://t.me/LGC_Miner_Bot?start=${walletAddress}`;
-            document.getElementById('no-wallet-msg').classList.add('hidden');
-            document.getElementById('ref-card').classList.remove('hidden');
-        }
+window.onload = () => {
+    tonUI = new TON_CONNECT_UI.TonConnectUI({ manifestUrl: MANIFEST_URL });
 
-        upd();
-        renderTasks();
-    };
-
-    // Toggle connect/disconnect on button tap
-    window.handleWalletBtn = () => {
-        if (!tonUI) return;
-        if (walletAddress) {
-            tonUI.disconnect();
+    tonUI.onStatusChange((wallet) => {
+        if (wallet) {
+            walletAddress   = wallet.account.address;
+            friendlyAddress = wallet.account.friendlyAddress || walletAddress;
+            setWalletUI(friendlyAddress);
         } else {
-            tonUI.openModal();
+            walletAddress = friendlyAddress = null;
+            clearWalletUI();
         }
-    };
-
-    // ═══════════════════════════════════════════
-    // UI
-    // ═══════════════════════════════════════════
-    function upd() {
-        const fmt = n => Math.floor(n).toLocaleString();
-        document.getElementById('bal').innerText     = fmt(bal);
-        document.getElementById('bal-w').innerText   = fmt(bal);
-        document.getElementById('eng-t').innerHTML   = `<i class="fa-solid fa-bolt text-[#FFD700]"></i> ${Math.floor(en)}/${maxE}`;
-        document.getElementById('eng-b').style.width = `${(en / maxE) * 100}%`;
-        document.getElementById('tap-v').innerText   = `+${tap} per tap`;
-        document.getElementById('c-mt').innerText    = (lvls.mt * 2000).toLocaleString();
-        document.getElementById('c-en').innerText    = (lvls.en * 5000).toLocaleString();
-        document.getElementById('l-mt').innerText    = lvls.mt;
-        document.getElementById('l-en').innerText    = lvls.en;
-        document.getElementById('rank').innerText    = bal > 200000 ? "Gold Miner" : bal > 50000 ? "Silver Miner" : "Iron Miner";
-    }
-
-    function renderTasks() {
-        ['tg','tw','tv'].forEach(id => {
-            const el = document.getElementById(`task-${id}`);
-            if (el && cl.includes(id)) el.classList.add('task-done');
-        });
-    }
-
-    function sv() { saveState({ bal, en, maxE, tap, cl, lvls, walletAddress }); }
-    function svDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(sv, 1000); }
-
-    // ═══════════════════════════════════════════
-    // ACTIONS
-    // ═══════════════════════════════════════════
-    window.doTask = (id, url, reward) => {
-        window.open(url, '_blank');
-        setTimeout(() => {
-            if (!cl.includes(id)) {
-                bal += reward; cl.push(id);
-                upd(); sv(); renderTasks();
-                showToast(`+${reward.toLocaleString()} LGC earned! ✅`);
-            }
-        }, 6000);
-    };
-
-    window.buy = (type) => {
-        if (type === 'mt') {
-            const cost = lvls.mt * 2000;
-            if (bal < cost) { showToast(`Need ${cost.toLocaleString()} LGC`); return; }
-            bal -= cost; lvls.mt++; tap += 2;
-            showToast(`Multitap → Lvl ${lvls.mt} ⚡`);
-        } else if (type === 'en') {
-            const cost = lvls.en * 5000;
-            if (bal < cost) { showToast(`Need ${cost.toLocaleString()} LGC`); return; }
-            bal -= cost; lvls.en++; maxE += 500;
-            showToast(`Energy Cap → Lvl ${lvls.en} 🔋`);
-        }
-        upd(); sv();
-    };
-
-    window.payout = async () => {
-        if (!tonUI)         { showToast("Wallet loading, please wait…"); return; }
-        if (!walletAddress) { document.getElementById('wallet-warning').classList.remove('hidden'); return; }
-        const amt = parseInt(document.getElementById('w-amt').value);
-        if (isNaN(amt) || amt < 15000) { showToast("Minimum 15,000 LGC"); return; }
-        if (amt > bal)                  { showToast("Insufficient balance"); return; }
-        try {
-            await tonUI.sendTransaction({
-                validUntil: Math.floor(Date.now() / 1000) + 300,
-                messages: [{ address: "UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf", amount: "100000000" }]
-            });
-            await fetch(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage?chat_id=7373026197&text=${encodeURIComponent(`Withdraw\nWallet: ${walletAddress}\nAmount: ${amt.toLocaleString()} LGC`)}`);
-            bal -= amt; document.getElementById('w-amt').value = '';
-            upd(); sv();
-            showToast("Withdrawal requested! ✅");
-        } catch(e) { showToast("Transaction cancelled or failed"); }
-    };
-
-    // Tapping
-    const tapBtn = document.getElementById('tap-btn');
-    tapBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e.touches[0]); }, { passive: false });
-    tapBtn.addEventListener('mousedown', (e) => { if (!('ontouchstart' in window)) handleTap(e); });
-
-    function handleTap(e) {
-        if (en < tap) return;
-        bal += tap; en -= tap;
-        const f = document.createElement('div');
-        f.className = 'tap-float';
-        f.innerText = `+${tap}`;
-        f.style.cssText = `left:${e.clientX}px;top:${e.clientY}px`;
-        document.body.appendChild(f);
-        setTimeout(() => f.remove(), 800);
-        if (navigator.vibrate) navigator.vibrate(40);
-        upd(); svDebounced();
-    }
-
-    // ── Offline regen — energy earned while app was closed ─
-    const REGEN_PER_SEC = 3;
-    if (saved && saved.lastSaved) {
-        const secsAway = Math.floor((Date.now() - saved.lastSaved) / 1000);
-        if (secsAway > 0) {
-            const gained = Math.min(secsAway * REGEN_PER_SEC, maxE - en);
-            en = Math.min(maxE, en + gained);
-        }
-    }
-
-    // ── Live regen — 3 energy per second while open ─────
-    setInterval(() => {
-        if (en < maxE) { en = Math.min(maxE, en + REGEN_PER_SEC); upd(); }
-    }, 1000);
-
-    // ── Save timestamp whenever state is written ─────────
-    function saveState(s) {
-        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastSaved: Date.now() })); }
-        catch(e) {}
-    }
-
-    // ── Save when user backgrounds or closes the app ─────
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') sv();
+        sv();
     });
-    window.addEventListener('pagehide', sv);
 
-    setInterval(sv, 30000);
+    // Restore UI if wallet was previously connected
+    if (friendlyAddress) setWalletUI(friendlyAddress);
+    upd();
+    renderTasks();
+};
 
-    window.switchTab = (id) => {
-        document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-        document.querySelectorAll('.nav-link').forEach(e => e.classList.remove('active'));
-        document.getElementById(`tab-${id}`).classList.remove('hidden');
-        const idx = ['mine','tasks','withdraw','boost','social'].indexOf(id);
-        if (idx !== -1) document.querySelectorAll('.nav-link')[idx].classList.add('active');
-    };
+function setWalletUI(addr) {
+    const short = addr.slice(0,6) + '…' + addr.slice(-4);
+    const btn = document.getElementById('wallet-btn');
+    btn.textContent = short;
+    btn.style.background = 'rgba(255,215,0,0.15)';
+    document.getElementById('wallet-warning').classList.add('hidden');
+    document.getElementById('ref-l').innerText = `https://t.me/LGC_Miner_Bot?start=${addr}`;
+    document.getElementById('no-wallet-msg').classList.add('hidden');
+    document.getElementById('ref-card').classList.remove('hidden');
+}
 
-    window.copyR = () => {
-        const link = document.getElementById('ref-l').innerText;
-        if (link.includes('http')) navigator.clipboard.writeText(link).then(() => showToast("Link copied! 📋"));
-    };
+function clearWalletUI() {
+    const btn = document.getElementById('wallet-btn');
+    btn.textContent = 'Connect Wallet';
+    btn.style.background = 'rgba(255,215,0,0.08)';
+    document.getElementById('ref-card').classList.add('hidden');
+    document.getElementById('no-wallet-msg').classList.remove('hidden');
+    closeWalletMenu();
+}
 
-    function showToast(msg) {
-        let t = document.getElementById('toast');
-        if (!t) {
-            t = document.createElement('div'); t.id = 'toast';
-            t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1d23;border:1px solid rgba(255,215,0,0.3);color:#FFD700;padding:10px 20px;border-radius:12px;font-size:12px;font-weight:700;z-index:9999;transition:opacity 0.3s;white-space:nowrap;';
-            document.body.appendChild(t);
-        }
-        t.innerText = msg; t.style.opacity = '1';
-        clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', 2500);
+// Wallet dropdown
+window.toggleWalletMenu = () => {
+    if (!walletAddress) { tonUI?.openModal(); return; }
+    document.getElementById('wallet-menu').classList.toggle('open');
+};
+window.copyAddress = () => {
+    navigator.clipboard.writeText(friendlyAddress || walletAddress)
+        .then(() => showToast('Address copied! 📋'));
+    closeWalletMenu();
+};
+window.disconnectWallet = () => {
+    tonUI?.disconnect();
+    closeWalletMenu();
+};
+const closeWalletMenu = () => document.getElementById('wallet-menu').classList.remove('open');
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#wallet-btn') && !e.target.closest('#wallet-menu')) closeWalletMenu();
+});
+
+// ═══════════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const fmt = n => Math.floor(n).toLocaleString();
+
+function upd() {
+    $('bal').innerText     = fmt(bal);
+    $('bal-w').innerText   = fmt(bal);
+    $('eng-t').innerHTML   = `<i class="fa-solid fa-bolt text-[#FFD700]"></i> ${Math.floor(en)}/${maxE}`;
+    $('eng-b').style.width = `${(en / maxE) * 100}%`;
+    $('tap-v').innerText   = `+${tap} per tap`;
+    $('c-mt').innerText    = fmt(lvls.mt * 2000);
+    $('c-en').innerText    = fmt(lvls.en * 5000);
+    $('l-mt').innerText    = lvls.mt;
+    $('l-en').innerText    = lvls.en;
+    $('rank').innerText    = bal > 200000 ? 'Gold Miner' : bal > 50000 ? 'Silver Miner' : 'Iron Miner';
+}
+
+function renderTasks() {
+    ['tg','tw','tv'].forEach(id => $(`task-${id}`)?.classList.toggle('task-done', cl.includes(id)));
+}
+
+function sv() { saveState({ bal, en, maxE, tap, cl, lvls, walletAddress, friendlyAddress }); }
+let saveTimeout;
+function svDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(sv, 1000); }
+
+// ═══════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════
+window.doTask = (id, url, reward) => {
+    window.open(url, '_blank');
+    setTimeout(() => {
+        if (cl.includes(id)) return;
+        bal += reward; cl.push(id);
+        upd(); sv(); renderTasks();
+        showToast(`+${fmt(reward)} LGC earned! ✅`);
+    }, 6000);
+};
+
+window.buy = (type) => {
+    const cfg = { mt: [lvls.mt * 2000, () => { lvls.mt++; tap += 2; }], en: [lvls.en * 5000, () => { lvls.en++; maxE += 500; }] };
+    const [cost, apply] = cfg[type];
+    if (bal < cost) { showToast(`Need ${fmt(cost)} LGC`); return; }
+    bal -= cost; apply();
+    showToast(type === 'mt' ? `Multitap → Lvl ${lvls.mt} ⚡` : `Energy Cap → Lvl ${lvls.en} 🔋`);
+    upd(); sv();
+};
+
+window.payout = async () => {
+    if (!tonUI)         { showToast('Wallet loading…'); return; }
+    if (!walletAddress) { $('wallet-warning').classList.remove('hidden'); return; }
+    const amt = parseInt($('w-amt').value);
+    if (isNaN(amt) || amt < 15000) { showToast('Minimum 15,000 LGC'); return; }
+    if (amt > bal)                  { showToast('Insufficient balance'); return; }
+    try {
+        await tonUI.sendTransaction({ validUntil: Math.floor(Date.now()/1000)+300, messages:[{ address: RECV_ADDR, amount:'100000000' }] });
+        await fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`Withdraw\nWallet: ${friendlyAddress}\nAmount: ${fmt(amt)} LGC`)}`);
+        bal -= amt; $('w-amt').value = '';
+        upd(); sv(); showToast('Withdrawal requested! ✅');
+    } catch { showToast('Transaction cancelled or failed'); }
+};
+
+// ═══════════════════════════════════════════════════
+// TAPPING
+// ═══════════════════════════════════════════════════
+function handleTap(e) {
+    if (en < tap) return;
+    bal += tap; en -= tap;
+    const f = document.createElement('div');
+    f.className = 'tap-float';
+    f.innerText = `+${tap}`;
+    f.style.cssText = `left:${e.clientX}px;top:${e.clientY}px`;
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 800);
+    if (navigator.vibrate) navigator.vibrate(40);
+    upd(); svDebounced();
+}
+const tapBtn = $('tap-btn');
+tapBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e.touches[0]); }, { passive:false });
+tapBtn.addEventListener('mousedown',  (e) => { if (!('ontouchstart' in window)) handleTap(e); });
+
+// ═══════════════════════════════════════════════════
+// ENERGY REGEN + AUTO SAVE
+// ═══════════════════════════════════════════════════
+setInterval(() => { if (en < maxE) { en = Math.min(maxE, en + REGEN_PER_SEC); upd(); } }, 1000);
+setInterval(sv, 30000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sv(); });
+window.addEventListener('pagehide', sv);
+
+// ═══════════════════════════════════════════════════
+// NAV + UTILS
+// ═══════════════════════════════════════════════════
+const TABS = ['mine','tasks','withdraw','boost','social'];
+window.switchTab = (id) => {
+    TABS.forEach(t => $(`tab-${t}`).classList.toggle('hidden', t !== id));
+    document.querySelectorAll('.nav-link').forEach((b,i) => b.classList.toggle('active', TABS[i] === id));
+};
+
+window.copyR = () => {
+    const link = $('ref-l').innerText;
+    if (link.includes('http')) navigator.clipboard.writeText(link).then(() => showToast('Link copied! 📋'));
+};
+
+function showToast(msg) {
+    let t = $('toast');
+    if (!t) {
+        t = document.createElement('div'); t.id = 'toast';
+        t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1d23;border:1px solid rgba(255,215,0,0.3);color:#FFD700;padding:10px 20px;border-radius:12px;font-size:12px;font-weight:700;z-index:9999;transition:opacity 0.3s;white-space:nowrap;';
+        document.body.appendChild(t);
     }
-    </script>
+    t.innerText = msg; t.style.opacity = '1';
+    clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', 2500);
+}
+</script>
 </body>
 </html>
