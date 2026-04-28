@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LGC Admin — Confirm Withdrawal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:#05070A;color:white;min-height:100vh}
+        .glass{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:20px}
+        input{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);color:white;width:100%;padding:14px 16px;border-radius:14px;outline:none;font-family:inherit;font-size:14px}
+        input::placeholder{color:rgba(255,255,255,0.3)}
+        input:focus{border-color:rgba(255,215,0,0.4)}
+        .btn{font-weight:800;padding:14px;border-radius:14px;width:100%;cursor:pointer;font-size:14px;border:none;font-family:inherit}
+        .btn-gold{background:#FFD700;color:black}
+        .btn-outline{background:rgba(255,215,0,0.08);color:#FFD700;border:1px solid rgba(255,215,0,0.3)!important}
+        .btn-red{background:rgba(255,80,80,0.12);color:#ff5c5c;border:1px solid rgba(255,80,80,0.3)!important}
+        .tag{font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px}
+        .tag-p{background:rgba(255,200,0,0.15);color:#FFD700}
+        .tag-c{background:rgba(0,200,100,0.15);color:#4ade80}
+    </style>
+</head>
+<body class="p-5 max-w-lg mx-auto">
+
+    <!-- PIN GATE -->
+    <div id="gate" class="min-h-screen flex flex-col items-center justify-center gap-6">
+        <div class="text-center">
+            <div class="w-16 h-16 rounded-2xl bg-[#FFD700] flex items-center justify-center mx-auto mb-4 text-3xl">⛏️</div>
+            <h1 class="text-2xl font-black">LGC Admin</h1>
+            <p class="text-white/40 text-sm mt-1">Enter PIN to access dashboard</p>
+        </div>
+        <div class="glass p-6 w-full space-y-4">
+            <div style="position:relative">
+                <input type="password" id="pin" placeholder="Enter PIN" inputmode="numeric"
+                    onkeydown="if(event.key==='Enter')checkPin()"
+                    style="padding-right:50px">
+                <button onclick="togglePin()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:16px" id="eye-btn">👁</button>
+            </div>
+            <button class="btn btn-gold" onclick="checkPin()">UNLOCK</button>
+            <p id="pin-err" class="text-red-400 text-xs text-center hidden">Wrong PIN. Try again.</p>
+
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dash" style="display:none" class="space-y-6 py-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black">Admin Panel</h1>
+                <p class="text-white/40 text-xs mt-1">LGC Miner Pro withdrawals</p>
+            </div>
+            <button onclick="lock()" class="text-white/30 text-xs font-bold border border-white/10 px-3 py-2 rounded-xl">LOCK</button>
+        </div>
+
+        <!-- Confirm form -->
+        <div class="glass p-5 space-y-3">
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Confirm a Withdrawal</p>
+            <input type="text" id="w-addr" placeholder="UQ... wallet address (from Telegram notification)">
+            <input type="text" id="w-tx"   placeholder="Transaction hash from TONScan">
+            <button class="btn btn-gold" onclick="doConfirm()">✅ MARK AS COMPLETED</button>
+        </div>
+
+        <!-- Lookup -->
+        <div class="glass p-5 space-y-3">
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Look Up User History</p>
+            <input type="text" id="l-addr" placeholder="UQ... wallet address">
+            <button class="btn btn-outline" onclick="doLookup()">🔍 LOOK UP</button>
+            <div id="lookup-out" class="space-y-3"></div>
+        </div>
+
+        <!-- How to use -->
+        <div class="glass p-5 space-y-2">
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">How To Use</p>
+            <p class="text-xs text-white/50 leading-relaxed">
+                1. User requests withdrawal → you receive Telegram notification with wallet + amount<br>
+                2. Send TON manually from your wallet → copy the TX hash from TONScan<br>
+                3. Paste wallet + TX hash above → tap Confirm<br>
+                4. User's withdrawal history updates to <span class="text-green-400 font-bold">Completed</span> on next app open
+            </p>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1d23] border border-[#FFD700]/30 text-[#FFD700] px-5 py-3 rounded-2xl text-sm font-bold z-50 opacity-0 transition-opacity whitespace-nowrap pointer-events-none"></div>
+
+<script>
+const PIN      = '258070';
+const SAVE_KEY = 'lgc_miner_state';
+
+// ── Auth ─────────────────────────────────────────────
+function togglePin() {
+    const p = document.getElementById('pin');
+    p.type = p.type === 'password' ? 'text' : 'password';
+}
+
+function checkPin() {
+    const entered = document.getElementById('pin').value.trim();
+    if (entered === PIN) {
+        sessionStorage.setItem('lgc_adm','1');
+        show();
+    } else {
+        document.getElementById('pin-err').classList.remove('hidden');
+        document.getElementById('pin').value = '';
+    }
+}
+function lock() {
+    sessionStorage.removeItem('lgc_adm');
+    document.getElementById('dash').style.display = 'none';
+    document.getElementById('gate').style.display = 'flex';
+    document.getElementById('pin').value = '';
+    document.getElementById('pin-err').classList.add('hidden');
+    document.getElementById('pin-debug').classList.add('hidden');
+}
+function show() {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+}
+if (sessionStorage.getItem('lgc_adm')==='1') show();
+
+// ── Confirm ──────────────────────────────────────────
+function doConfirm() {
+    const addr = document.getElementById('w-addr').value.trim();
+    const tx   = document.getElementById('w-tx').value.trim();
+    if (!addr || !tx) { toast('Fill in both fields ⚠️'); return; }
+    if (!addr.startsWith('UQ') && !addr.startsWith('EQ')) { toast('Invalid wallet address'); return; }
+    if (tx.length < 10) { toast('TX hash too short'); return; }
+
+    // Store a pending confirmation that the user's app will pick up on next load
+    localStorage.setItem(`lgc_confirm_${addr}`, JSON.stringify({ tx, confirmedAt: Date.now() }));
+
+    // If this is the same device/browser, update directly
+    const updated = updateLocal(addr, tx);
+    toast(updated ? '✅ Marked as Completed!' : '✅ Saved — user sees update on next open');
+    document.getElementById('w-addr').value = '';
+    document.getElementById('w-tx').value = '';
+}
+
+function updateLocal(addr, tx, id = null) {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const state = JSON.parse(raw);
+        let hit = false;
+        state.withdrawals = (state.withdrawals || []).map(w => {
+            const match = id ? w.id === id : (w.addr === addr && w.status === 'Pending');
+            if (match) { hit = true; return { ...w, status:'Completed', tx, completedAt:Date.now() }; }
+            return w;
+        });
+        if (hit) localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        return hit;
+    } catch { return false; }
+}
+
+// ── Lookup ───────────────────────────────────────────
+function doLookup() {
+    const addr = document.getElementById('l-addr').value.trim();
+    const out  = document.getElementById('lookup-out');
+    if (!addr) { toast('Enter a wallet address'); return; }
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) { out.innerHTML = empty(); return; }
+        const state  = JSON.parse(raw);
+        const items  = (state.withdrawals || []).filter(w => w.addr === addr);
+        if (!items.length) { out.innerHTML = empty(); return; }
+        out.innerHTML = items.map(w => `
+            <div class="glass p-4 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="font-black text-[#FFD700]">${Math.floor(w.amt).toLocaleString()} LGC</span>
+                    <span class="tag ${w.status==='Pending'?'tag-p':'tag-c'}">${w.status}</span>
+                </div>
+                <p class="text-[10px] text-white/40">${new Date(w.ts).toLocaleString()}</p>
+                ${w.tx ? `<p class="text-[10px] text-green-400 break-all">TX: ${w.tx}</p>` : ''}
+                ${w.status==='Pending' ? `<button class="btn btn-red" style="padding:10px" onclick="quick('${w.addr}',${w.id})">Mark Completed</button>` : ''}
+            </div>`).join('');
+    } catch { out.innerHTML = empty(); }
+}
+
+function quick(addr, id) {
+    const tx = prompt('Paste transaction hash:');
+    if (!tx || tx.length < 10) { toast('Invalid hash'); return; }
+    const ok = updateLocal(addr, tx, id);
+    toast(ok ? '✅ Updated!' : '⚠️ Not found in local state');
+    doLookup();
+}
+
+const empty = () => `<p class="text-white/30 text-sm text-center py-4">No withdrawals found</p>`;
+
+// ── Toast ─────────────────────────────────────────────
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg; t.style.opacity = '1';
+    clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', 3000);
+}
+</script>
+</body>
+</html>

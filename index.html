@@ -102,6 +102,20 @@
                 </div>
                 <button onclick="doTask('tv','https://tonscan.org/jetton/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j#events',2000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black">GO</button>
             </div>
+            <div id="task-web" class="glass p-4 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-globe text-green-400 text-xl"></i>
+                    <div><p class="font-bold text-sm">Visit Website</p><p class="text-[10px] text-white/40">+1,000 LGC</p></div>
+                </div>
+                <button onclick="doTask('web','https://lgcminer.my.canva.site/untitled-app',1000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black">GO</button>
+            </div>
+            <div id="task-lp" class="glass p-4 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-globe text-emerald-400 text-xl"></i>
+                    <div><p class="font-bold text-sm">Visit Website</p><p class="text-[10px] text-white/40">+1,000 LGC</p></div>
+                </div>
+                <button onclick="doTask('lp','https://lgcminer.my.canva.site/untitled-app',1000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black">GO</button>
+            </div>
         </div>
 
         <!-- WITHDRAW -->
@@ -161,6 +175,18 @@
                 <button onclick="copyR()" class="w-full bg-[#FFD700] text-black font-black py-4 rounded-2xl">COPY LINK</button>
             </div>
         </div>
+        <!-- HISTORY -->
+        <div id="tab-history" class="tab-content hidden space-y-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-2xl font-black">Withdrawals</h3>
+                <button onclick="clearHistory()" class="text-[10px] text-white/30 font-bold">CLEAR</button>
+            </div>
+            <div id="history-empty" class="glass p-8 rounded-3xl text-center text-white/30 text-sm">
+                <i class="fa-solid fa-inbox text-3xl mb-3 block"></i>
+                No withdrawals yet
+            </div>
+            <div id="history-list" class="space-y-3"></div>
+        </div>
     </main>
 
     <!-- Bottom nav -->
@@ -170,6 +196,7 @@
         <button onclick="switchTab('withdraw')" class="nav-link flex flex-1 flex-col items-center gap-1"><i class="fa-solid fa-paper-plane"></i><span class="text-[9px] font-black">PAYOUT</span></button>
         <button onclick="switchTab('boost')"    class="nav-link flex flex-1 flex-col items-center gap-1"><i class="fa-solid fa-rocket"></i><span class="text-[9px] font-black">BOOST</span></button>
         <button onclick="switchTab('social')"   class="nav-link flex flex-1 flex-col items-center gap-1"><i class="fa-solid fa-users"></i><span class="text-[9px] font-black">FRIENDS</span></button>
+        <button onclick="switchTab('history')"  class="nav-link flex flex-1 flex-col items-center gap-1"><i class="fa-solid fa-clock-rotate-left"></i><span class="text-[9px] font-black">HISTORY</span></button>
     </nav>
 
 <script>
@@ -185,37 +212,81 @@ const MANIFEST_URL  = 'https://raw.githubusercontent.com/awesomejoses11-code/LGC
 // ═══════════════════════════════════════════════════
 // STORAGE
 // ═══════════════════════════════════════════════════
-const loadState = () => { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } };
-const saveState = (s) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, lastSaved: Date.now() })); } catch {} };
+// ── localStorage (offline backup) ───────────────────
+const loadLocal  = () => { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } };
+const saveLocal  = (s) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch {} };
+
+// ── Telegram CloudStorage (primary) ─────────────────
+const tgCloud = window.Telegram?.WebApp?.CloudStorage || null;
+
+function saveState(s) {
+    const data = { ...s, lastSaved: Date.now() };
+    saveLocal(data); // always save locally as backup
+    if (tgCloud) {
+        tgCloud.setItem('game', JSON.stringify(data), () => {});
+        // Save withdrawals separately so confirm.html can update just that key
+        tgCloud.setItem('withdrawals', JSON.stringify(s.withdrawals || []), () => {});
+    }
+}
+
+function loadState() {
+    return new Promise((resolve) => {
+        if (tgCloud) {
+            tgCloud.getItem('game', (err, val) => {
+                if (!err && val) {
+                    try { resolve(JSON.parse(val)); return; } catch {}
+                }
+                resolve(loadLocal()); // fallback to localStorage
+            });
+        } else {
+            resolve(loadLocal());
+        }
+    });
+}
 
 // ═══════════════════════════════════════════════════
 // GAME STATE — load or default
 // ═══════════════════════════════════════════════════
-// Clear stale cached friendlyAddress that may be in old hex format
-(()=>{
-    try {
-        const s = JSON.parse(localStorage.getItem('lgc_miner_state')||'{}');
-        if (s.friendlyAddress && s.friendlyAddress.startsWith('0:')) {
-            s.friendlyAddress = null;
-            localStorage.setItem('lgc_miner_state', JSON.stringify(s));
+// ── Game state defaults (filled after async load) ───
+let bal = 0, maxE = 1000, tap = 10, en = 1000;
+let cl = [], lvls = { mt:1, en:1 }, withdrawals = [];
+let walletAddress = null, friendlyAddress = null;
+
+function applyState(saved) {
+    if (!saved) return;
+    // Clear stale hex friendlyAddress
+    if (saved.friendlyAddress?.startsWith('0:')) saved.friendlyAddress = null;
+    bal             = saved.bal             ?? 0;
+    maxE            = saved.maxE            ?? 1000;
+    tap             = saved.tap             ?? 10;
+    cl              = saved.cl              ?? [];
+    lvls            = saved.lvls            ?? { mt:1, en:1 };
+    walletAddress   = saved.walletAddress   ?? null;
+    friendlyAddress = saved.friendlyAddress ?? walletAddress;
+    withdrawals     = saved.withdrawals     ?? [];
+
+    // ── Pick up any pending confirmations from admin ──
+    withdrawals = withdrawals.map(w => {
+        if (w.status === 'Pending') {
+            try {
+                const key = `lgc_confirm_${w.addr}`;
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const conf = JSON.parse(raw);
+                    localStorage.removeItem(key); // consume it
+                    return { ...w, status: 'Completed', tx: conf.tx, completedAt: conf.confirmedAt };
+                }
+            } catch {}
         }
-    } catch {}
-})();
+        return w;
+    });
 
-const saved = loadState();
-let bal  = saved?.bal  ?? 0;
-let maxE = saved?.maxE ?? 1000;
-let tap  = saved?.tap  ?? 10;
-let cl   = saved?.cl   ?? [];
-let lvls = saved?.lvls ?? { mt:1, en:1 };
-let walletAddress = saved?.walletAddress ?? null;
-let friendlyAddress = saved?.friendlyAddress ?? walletAddress;
-
-// Offline energy regen
-let en = saved?.en ?? 1000;
-if (saved?.lastSaved) {
-    const secsAway = Math.floor((Date.now() - saved.lastSaved) / 1000);
-    en = Math.min(maxE, en + secsAway * REGEN_PER_SEC);
+    // Offline energy regen
+    en = saved.en ?? 1000;
+    if (saved.lastSaved) {
+        const secsAway = Math.floor((Date.now() - saved.lastSaved) / 1000);
+        en = Math.min(maxE, en + secsAway * REGEN_PER_SEC);
+    }
 }
 
 // ═══════════════════════════════════════════════════
@@ -252,7 +323,11 @@ function rawToFriendly(raw) {
     }
 }
 
-window.onload = () => {
+window.onload = async () => {
+    // Load state (CloudStorage async, localStorage sync fallback)
+    const saved = await loadState();
+    applyState(saved);
+
     tonUI = new TON_CONNECT_UI.TonConnectUI({ manifestUrl: MANIFEST_URL });
 
     tonUI.onStatusChange((wallet) => {
@@ -272,6 +347,7 @@ window.onload = () => {
     if (friendlyAddress) setWalletUI(friendlyAddress);
     upd();
     renderTasks();
+    renderHistory();
 };
 
 function setWalletUI(addr) {
@@ -333,10 +409,10 @@ function upd() {
 }
 
 function renderTasks() {
-    ['tg','tw','tv'].forEach(id => $(`task-${id}`)?.classList.toggle('task-done', cl.includes(id)));
+    ['tg','tw','tv','web'].forEach(id => $(`task-${id}`)?.classList.toggle('task-done', cl.includes(id)));
 }
 
-function sv() { saveState({ bal, en, maxE, tap, cl, lvls, walletAddress, friendlyAddress }); }
+function sv() { saveState({ bal, en, maxE, tap, cl, lvls, walletAddress, friendlyAddress, withdrawals }); }
 let saveTimeout;
 function svDebounced() { clearTimeout(saveTimeout); saveTimeout = setTimeout(sv, 1000); }
 
@@ -371,8 +447,11 @@ window.payout = async () => {
     try {
         await tonUI.sendTransaction({ validUntil: Math.floor(Date.now()/1000)+300, messages:[{ address: RECV_ADDR, amount:'100000000' }] });
         await fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`Withdraw\nWallet: ${friendlyAddress}\nAmount: ${fmt(amt)} LGC`)}`);
+        // Log to history with unique ID
+        const wId = Date.now();
+        withdrawals.unshift({ id: wId, amt, addr: friendlyAddress, ts: wId, status: 'Pending' });
         bal -= amt; $('w-amt').value = '';
-        upd(); sv(); showToast('Withdrawal requested! ✅');
+        upd(); sv(); renderHistory(); showToast('Withdrawal requested! ✅');
     } catch { showToast('Transaction cancelled or failed'); }
 };
 
@@ -400,13 +479,31 @@ tapBtn.addEventListener('mousedown',  (e) => { if (!('ontouchstart' in window)) 
 // ═══════════════════════════════════════════════════
 setInterval(() => { if (en < maxE) { en = Math.min(maxE, en + REGEN_PER_SEC); upd(); } }, 1000);
 setInterval(sv, 30000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sv(); });
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') sv();
+    // On return to app, sync withdrawals from CloudStorage
+    if (document.visibilityState === 'visible' && tgCloud) {
+        tgCloud.getItem('withdrawals', (err, val) => {
+            if (!err && val) {
+                try {
+                    const updated = JSON.parse(val);
+                    if (JSON.stringify(updated) !== JSON.stringify(withdrawals)) {
+                        withdrawals = updated;
+                        renderHistory();
+                        const completed = withdrawals.filter(w => w.status === 'Completed').length;
+                        if (completed) showToast(`${completed} withdrawal${completed>1?'s':''} completed ✅`);
+                    }
+                } catch {}
+            }
+        });
+    }
+});
 window.addEventListener('pagehide', sv);
 
 // ═══════════════════════════════════════════════════
 // NAV + UTILS
 // ═══════════════════════════════════════════════════
-const TABS = ['mine','tasks','withdraw','boost','social'];
+const TABS = ['mine','tasks','withdraw','boost','social','history'];
 window.switchTab = (id) => {
     TABS.forEach(t => $(`tab-${t}`).classList.toggle('hidden', t !== id));
     document.querySelectorAll('.nav-link').forEach((b,i) => b.classList.toggle('active', TABS[i] === id));
@@ -415,6 +512,46 @@ window.switchTab = (id) => {
 window.copyR = () => {
     const link = $('ref-l').innerText;
     if (link.includes('http')) copyToClipboard(link);
+};
+
+// ═══════════════════════════════════════════════════
+// WITHDRAWAL HISTORY
+// ═══════════════════════════════════════════════════
+function renderHistory() {
+    const list  = $('history-list');
+    const empty = $('history-empty');
+    if (!withdrawals.length) {
+        empty.classList.remove('hidden');
+        list.innerHTML = '';
+        return;
+    }
+    empty.classList.add('hidden');
+    list.innerHTML = withdrawals.map((w, i) => {
+        const date = new Date(w.ts);
+        const dateStr = date.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+        const timeStr = date.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+        const shortAddr = w.addr ? w.addr.slice(0,6) + '…' + w.addr.slice(-4) : 'Unknown';
+        return `
+        <div class="glass p-4 rounded-2xl">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="font-black text-[#FFD700]">${fmt(w.amt)} LGC</p>
+                    <p class="text-[10px] text-white/40 mt-1">${shortAddr}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-[9px] font-bold px-2 py-1 rounded-lg ${w.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}">${w.status}</span>
+                    <p class="text-[9px] text-white/30 mt-2">${dateStr} ${timeStr}</p>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+window.clearHistory = () => {
+    if (!withdrawals.length) return;
+    withdrawals = [];
+    sv(); renderHistory();
+    showToast('History cleared');
 };
 
 // Robust clipboard — works inside Telegram webview
