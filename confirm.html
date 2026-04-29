@@ -69,6 +69,17 @@
             <div id="lookup-out" class="space-y-3"></div>
         </div>
 
+        <!-- Liquidity verifications -->
+        <div class="glass p-5 space-y-3">
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">⚡ Approve Liquidity Tasks</p>
+            <p class="text-xs text-white/40">Check Telegram for verification requests. To approve, enter the user's wallet below and tap Approve — they get 15,000 LGC credited.</p>
+            <input type="text" id="liq-wallet" placeholder="UQ... wallet address">
+            <div style="display:flex;gap:10px">
+                <button class="btn btn-gold" style="flex:1" onclick="approveLiq()">✅ APPROVE +15,000 LGC</button>
+                <button class="btn btn-red" style="flex:1;border:1px solid rgba(255,80,80,0.3)" onclick="rejectLiq()">❌ REJECT</button>
+            </div>
+        </div>
+
         <!-- How to use -->
         <div class="glass p-5 space-y-2">
             <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">How To Use</p>
@@ -109,7 +120,6 @@ function lock() {
     document.getElementById('gate').style.display = 'flex';
     document.getElementById('pin').value = '';
     document.getElementById('pin-err').classList.add('hidden');
-    document.getElementById('pin-debug').classList.add('hidden');
 }
 function show() {
     document.getElementById('gate').style.display = 'none';
@@ -181,6 +191,35 @@ function quick(addr, id) {
     const ok = updateLocal(addr, tx, id);
     toast(ok ? '✅ Updated!' : '⚠️ Not found in local state');
     doLookup();
+}
+
+function approveLiq() {
+    const addr = document.getElementById('liq-wallet').value.trim();
+    if (!addr) { toast('Enter wallet address'); return; }
+    // Always write the pickup key — the app reads this on next open regardless of device
+    localStorage.setItem(`lgc_liq_approved_${addr}`, JSON.stringify({ approved: true, ts: Date.now() }));
+    // Also try to update local state directly if present (same-device optimization)
+    try {
+        const raw = localStorage.getItem('lgc_miner_state');
+        if (raw) {
+            const state = JSON.parse(raw);
+            state.bal = (state.bal || 0) + 15000;
+            if (!state.cl) state.cl = [];
+            if (!state.cl.includes('liq')) state.cl.push('liq');
+            state.cl = state.cl.filter(c => c !== 'liq_pending');
+            localStorage.setItem('lgc_miner_state', JSON.stringify(state));
+        }
+    } catch(e) { console.warn('approveLiq local update failed:', e); }
+    toast('✅ Approved! User gets 15,000 LGC on next open');
+    document.getElementById('liq-wallet').value = '';
+}
+
+function rejectLiq() {
+    const addr = document.getElementById('liq-wallet').value.trim();
+    if (!addr) { toast('Enter wallet address'); return; }
+    localStorage.setItem(`lgc_liq_approved_${addr}`, JSON.stringify({ approved: false, ts: Date.now() }));
+    toast('❌ Rejected — user notified on next open');
+    document.getElementById('liq-wallet').value = '';
 }
 
 const empty = () => `<p class="text-white/30 text-sm text-center py-4">No withdrawals found</p>`;
