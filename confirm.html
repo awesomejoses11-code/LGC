@@ -80,6 +80,15 @@
             </div>
         </div>
 
+        <!-- Referral Commissions -->
+        <div class="glass p-5 space-y-3">
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">👥 Credit Referral Commission</p>
+            <p class="text-xs text-white/40">When you get a "NEW REFERRAL" Telegram notification, paste the referrer's wallet below and tap Credit — they get 10% of the 2,000 LGC bonus (= 200 LGC) on next open.</p>
+            <input type="text" id="ref-wallet" placeholder="UQ... referrer wallet address">
+            <input type="number" id="ref-count-in" placeholder="Number of new referrals to credit" min="1" value="1">
+            <button class="btn btn-gold" onclick="creditReferral()">💰 CREDIT COMMISSION</button>
+        </div>
+
         <!-- How to use -->
         <div class="glass p-5 space-y-2">
             <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">How To Use</p>
@@ -87,7 +96,8 @@
                 1. User requests withdrawal → you receive Telegram notification with wallet + amount<br>
                 2. Send TON manually from your wallet → copy the TX hash from TONScan<br>
                 3. Paste wallet + TX hash above → tap Confirm<br>
-                4. User's withdrawal history updates to <span class="text-green-400 font-bold">Completed</span> on next app open
+                4. User's withdrawal history updates to <span class="text-green-400 font-bold">Completed</span> on next app open<br><br>
+                <span class="text-[#FFD700] font-bold">Referrals:</span> When you get a "NEW REFERRAL" notification, use the Referral Commission panel to credit the referrer. They get 200 LGC (10% of the 2,000 new user bonus) on their next app open.
             </p>
         </div>
     </div>
@@ -212,6 +222,28 @@ function approveLiq() {
     } catch(e) { console.warn('approveLiq local update failed:', e); }
     toast('✅ Approved! User gets 15,000 LGC on next open');
     document.getElementById('liq-wallet').value = '';
+}
+
+function creditReferral() {
+    const addr  = document.getElementById('ref-wallet').value.trim();
+    const count = parseInt(document.getElementById('ref-count-in').value) || 1;
+    if (!addr) { toast('Enter referrer wallet address'); return; }
+    if (!addr.startsWith('UQ') && !addr.startsWith('EQ')) { toast('Invalid wallet address'); return; }
+
+    const REFEREE_BONUS   = 2000;
+    const REFERRER_RATE   = 0.10;
+    const commissionEach  = Math.floor(REFEREE_BONUS * REFERRER_RATE); // 200 LGC per referral
+    const totalEarned     = REFEREE_BONUS * count; // base amount to apply rate on
+
+    const commKey = `lgc_ref_commission_${addr}`;
+    const existing = JSON.parse(localStorage.getItem(commKey) || '{"count":0,"earned":0}');
+    existing.count  += count;
+    existing.earned += totalEarned;
+    localStorage.setItem(commKey, JSON.stringify(existing));
+
+    toast(`✅ ${count} referral${count>1?'s':''} credited → +${(commissionEach*count).toLocaleString()} LGC for ${addr.slice(0,8)}…`);
+    document.getElementById('ref-wallet').value = '';
+    document.getElementById('ref-count-in').value = '1';
 }
 
 function rejectLiq() {
