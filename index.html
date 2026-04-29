@@ -146,10 +146,49 @@ function hapticSelect(){if(tgHaptic)tgHaptic.selectionChanged();else if(navigato
 
 const SAVE_KEY='lgc_miner_state',REGEN_PER_SEC=3,RECV_ADDR='UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',TG_URL='https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage',MANIFEST_URL='https://lgcminer.vercel.app/tonconnect-manifest.json',BOT_URL='https://t.me/LGC_Miner_Bot',TABS=['miner','tasks','friends','wallet'],TASK_IDS=['tg','tw','xpost','tv','web','pool','liq'],MIN_CLAIM=15000;
 
-const loadLocal=()=>{try{const r=localStorage.getItem(SAVE_KEY);return r?JSON.parse(r):null;}catch{return null;}};
-const saveLocal=(s)=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));}catch{}};
-function saveState(s){const d={...s,lastSaved:Date.now()};saveLocal(d);if(tgCloud){tgCloud.setItem('game',JSON.stringify(d),()=>{});tgCloud.setItem('withdrawals',JSON.stringify(s.withdrawals||[]),()=>{});}}
-function loadState(){return new Promise(r=>{if(tgCloud){tgCloud.getItem('game',(e,v)=>{if(!e&&v){try{return r(JSON.parse(v));}catch{}}r(loadLocal());});}else r(loadLocal());});}
+// ── Storage: true hybrid — localStorage on web, CloudStorage on TG,
+//    with automatic migration so progress is never lost when switching. ────────
+const loadLocal = () => { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } };
+const saveLocal = (s) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch {} };
+
+// Pick whichever save is newer so switching between web and TG never rolls back progress
+function mergeStates(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    return (a.lastSaved || 0) >= (b.lastSaved || 0) ? a : b;
+}
+
+function saveState(s) {
+    const d = { ...s, lastSaved: Date.now() };
+    // Always write localStorage — works on web AND inside TG browser
+    saveLocal(d);
+    // Also write CloudStorage when inside TG — survives reinstalls & device changes
+    if (tgCloud) {
+        tgCloud.setItem('game', JSON.stringify(d), () => {});
+        tgCloud.setItem('withdrawals', JSON.stringify(s.withdrawals || []), () => {});
+    }
+}
+
+function loadState() {
+    return new Promise(resolve => {
+        const local = loadLocal();
+        if (tgCloud) {
+            // On TG: load both, pick the newer one, then migrate local→cloud if needed
+            tgCloud.getItem('game', (err, val) => {
+                let cloud = null;
+                if (!err && val) { try { cloud = JSON.parse(val); } catch {} }
+                const best = mergeStates(cloud, local);
+                // If local was newer than cloud, push it up to CloudStorage now
+                if (best && best === local && !cloud) {
+                    tgCloud.setItem('game', JSON.stringify(best), () => {});
+                }
+                resolve(best);
+            });
+        } else {
+            resolve(local);
+        }
+    });
+}
 
 let bal=0,maxE=1000,tap=10,en=1000,cl=[],lvls={mt:1,en:1},withdrawals=[],walletAddress=null,friendlyAddress=null,tonUI=null,lastEnergyWarnTime=0,saveTimeout=null;
 
