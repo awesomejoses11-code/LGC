@@ -153,7 +153,7 @@
             <div class="text-center pt-2">
                 <p class="text-[10px] font-black uppercase text-white/30 tracking-widest">Weekly Competition</p>
                 <h2 class="text-2xl font-black mt-1">🏆 Top 15 Holders</h2>
-                <p class="text-[10px] text-white/40 mt-1">Snapshots taken multiple times weekly · Must hold consistently</p>
+                <p class="text-[10px] text-white/40 mt-1">Live on-chain data · Refreshes every 5 minutes</p>
             </div>
 
             <!-- Weekly prize pool -->
@@ -214,7 +214,7 @@
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <h4 class="text-sm font-bold">Current Snapshot</h4>
-                    <span id="lb-week-label" class="text-[9px] text-white/25 font-bold">Updated weekly</span>
+                    <span id="lb-week-label" class="text-[9px] text-white/25 font-bold"id="lb-live-status">⏳ Loading…</span>
                 </div>
                 <div id="lb-list" class="space-y-2">
                     <!-- Populated by renderLeaderboard() -->
@@ -1015,7 +1015,7 @@ setInterval(()=>{ if(walletAddress||friendlyAddress) fetchWalletHoldings(friendl
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){sv();return;}if(!tgCloud)return;tgCloud.getItem('withdrawals',(e,v)=>{if(e||!v)return;try{const r=JSON.parse(v),nc=r.filter(w=>w.status==='Completed'&&withdrawals.some(x=>x.id===w.id&&x.status==='Pending'));if(!nc.length)return;withdrawals=withdrawals.map(w=>{const m=nc.find(x=>x.id===w.id);return m||w;});renderHistory();sv();hapticNotify('success');showToast(`${nc.length} withdrawal${nc.length>1?'s':''} completed ✅`);}catch{}});});
 window.addEventListener('pagehide',sv);
 
-window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$(`tab-${t}`);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));};
+window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard')renderLeaderboard();};
 window.copyR=()=>{const l=$('ref-l').innerText;if(l.includes('http')){copyToClipboard(l);hapticNotify('success');}};
 function copyToClipboard(text){if(!text)return;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>showToast('Copied! 📋')).catch(()=>fallbackCopy(text));else fallbackCopy(text);}
 function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;top:-999px;opacity:0';document.body.appendChild(el);el.focus();el.select();try{document.execCommand('copy');showToast('Copied! 📋');}catch{showToast('Long-press to copy');}document.body.removeChild(el);}
@@ -1038,81 +1038,184 @@ window.updateFeePreview=()=>{
 };
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
-const LB_KEY = 'lgc_leaderboard_snapshot';
-const LB_EXCLUDED = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
-const WEEKLY_EQUAL = 150000;
-const WEEKLY_PROP  = 300000;
-const TOP_N        = 15;
-const EQUAL_EACH   = WEEKLY_EQUAL / TOP_N; // 10,000 LGC per holder
+// ── Live Leaderboard — reads top holders directly from TON blockchain ────────
+const LB_EXCLUDED   = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
+const LB_CACHE_KEY  = 'lgc_lb_cache';
+const LB_CACHE_TTL  = 5 * 60 * 1000; // 5 minutes
+const WEEKLY_EQUAL  = 150000;
+const WEEKLY_PROP   = 300000;
+const TOP_N         = 15;
+const EQUAL_EACH    = WEEKLY_EQUAL / TOP_N; // 10,000 LGC each
 
-function renderLeaderboard(){
+let _lbFetching = false;
+
+// Returns cached holders array, or null if stale / missing
+function _getLBCache() {
+    try {
+        const raw = localStorage.getItem(LB_CACHE_KEY);
+        if (!raw) return null;
+        const { ts, holders } = JSON.parse(raw);
+        if (Date.now() - ts > LB_CACHE_TTL) return null;
+        return holders;
+    } catch { return null; }
+}
+
+function _setLBCache(holders) {
+    try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), holders })); } catch {}
+}
+
+// Fetches top holders from TonCenter API, filters excluded wallet, returns top 15
+async function fetchLiveHolders() {
+    // Fetch top 25 so we still have 15 after excluding the admin wallet
+    const url = 'https://toncenter.com/api/v3/jetton/wallets'
+        + '?jetton_address=' + encodeURIComponent(LGC_JETTON)
+        + '&limit=25&sort_by=balance&sort_order=desc';
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    const wallets = data?.jetton_wallets || [];
+    const holders = wallets
+        .map(w => ({
+            addr:  w.owner || w.owner_address || '?',
+            held:  w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
+        }))
+        .filter(h => h.addr !== LB_EXCLUDED && h.held > 0)
+        .sort((a, b) => b.held - a.held)
+        .slice(0, TOP_N);
+
+    return holders;
+}
+
+// Main: fetch (or use cache) then render — called on tab open + refresh button
+async function renderLeaderboard(forceRefresh = false) {
     const myAddr = friendlyAddress || walletAddress;
-    // Update your holdings card
+
+    // ── "Your holdings" card ─────────────────────────────────────────────────
     const lbHeld = $('lb-held');
     const lbRank = $('lb-rank-label');
     const lbNoW  = $('lb-no-wallet');
-    if(lbHeld) lbHeld.textContent = myAddr ? heldLGC.toLocaleString()+' LGC' : '—';
-    if(lbNoW)  lbNoW.classList.toggle('hidden', !!myAddr);
-    if(lbRank && myAddr){
-        const snap = getLBSnapshot();
-        const myEntry = snap.find(e=>e.addr===myAddr);
-        const rank = myEntry ? snap.indexOf(myEntry)+1 : null;
-        if(rank && rank<=TOP_N) lbRank.textContent = `#${rank} · Qualified ✅`;
-        else if(rank) lbRank.textContent = `#${rank} · Not in Top ${TOP_N}`;
-        else lbRank.textContent = 'Not in snapshot yet';
+    if (lbHeld) lbHeld.textContent = myAddr ? heldLGC.toLocaleString() + ' LGC' : '—';
+    if (lbNoW)  lbNoW.classList.toggle('hidden', !!myAddr);
+
+    // ── List ──────────────────────────────────────────────────────────────────
+    const list   = $('lb-list');
+    const status = $('lb-live-status');
+    if (!list) return;
+
+    // Use cache if fresh and not forcing
+    let holders = forceRefresh ? null : _getLBCache();
+
+    if (!holders) {
+        if (_lbFetching) return; // already in-flight
+        _lbFetching = true;
+
+        // Show skeleton while loading
+        list.innerHTML = '<div class="glass p-6 rounded-2xl text-center text-white/30 text-xs">'
+            + '<i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 block text-[#FFD700]/40"></i>'
+            + 'Fetching live data…</div>';
+        if (status) { status.textContent = '⏳ Fetching…'; }
+
+        try {
+            holders = await fetchLiveHolders();
+            _setLBCache(holders);
+            if (status) status.textContent = '🟢 Live · just now';
+        } catch (err) {
+            console.warn('Leaderboard fetch failed:', err.message);
+            // Fall back to stale cache if available
+            try {
+                const raw = localStorage.getItem(LB_CACHE_KEY);
+                if (raw) holders = JSON.parse(raw).holders;
+            } catch {}
+            if (status) status.textContent = '🔴 Offline · cached';
+            if (!holders || !holders.length) {
+                list.innerHTML = '<div class="glass p-6 rounded-2xl text-center text-white/30 text-xs">'
+                    + '<i class="fa-solid fa-triangle-exclamation text-2xl mb-2 block opacity-40"></i>'
+                    + 'Could not load leaderboard.<br>'
+                    + '<span class="text-[10px]">Check your connection and try again.</span></div>';
+                _lbFetching = false;
+                return;
+            }
+        } finally {
+            _lbFetching = false;
+        }
+    } else {
+        // Showing cached data — update status label with age
+        try {
+            const { ts } = JSON.parse(localStorage.getItem(LB_CACHE_KEY));
+            const mins = Math.floor((Date.now() - ts) / 60000);
+            if (status) status.textContent = mins < 1 ? '🟢 Live · just now' : '🟡 Cached · ' + mins + 'm ago';
+        } catch {}
     }
 
-    // Render list
-    const list = $('lb-list');
-    if(!list) return;
-    const snap = getLBSnapshot();
-    if(!snap.length){
-        list.innerHTML=`<div class="glass p-6 rounded-2xl text-center text-white/30 text-xs"><i class="fa-solid fa-hourglass-half text-2xl mb-2 block opacity-40"></i>Leaderboard snapshot loading…<br><span class="text-[10px] mt-1 block">Results appear after the first weekly snapshot</span></div>`;
+    if (!holders || !holders.length) {
+        list.innerHTML = '<div class="glass p-6 rounded-2xl text-center text-white/30 text-xs">'
+            + '<i class="fa-solid fa-hourglass-half text-2xl mb-2 block opacity-40"></i>'
+            + 'No holders found yet.</div>';
         return;
     }
-    const totalTop15 = snap.slice(0,TOP_N).reduce((s,e)=>s+e.held, 0);
-    list.innerHTML = snap.slice(0,TOP_N).map((e,i)=>{
-        const rank=i+1;
-        const medals=['🥇','🥈','🥉'];
-        const medal = rank<=3 ? medals[rank-1] : `#${rank}`;
-        const propShare = totalTop15>0 ? Math.floor((e.held/totalTop15)*WEEKLY_PROP) : 0;
+
+    // ── Rank card ─────────────────────────────────────────────────────────────
+    if (lbRank && myAddr) {
+        const myIdx = holders.findIndex(h => h.addr === myAddr);
+        if (myIdx !== -1) lbRank.textContent = '#' + (myIdx + 1) + ' · Qualified ✅';
+        else lbRank.textContent = 'Not in Top ' + TOP_N;
+    } else if (lbRank) {
+        lbRank.textContent = 'Connect wallet to see rank';
+    }
+
+    // ── Render rows ────────────────────────────────────────────────────────────
+    const totalTop15 = holders.reduce((s, h) => s + h.held, 0);
+    const medals = ['🥇','🥈','🥉'];
+
+    list.innerHTML = holders.map((h, i) => {
+        const rank        = i + 1;
+        const medal       = rank <= 3 ? medals[rank - 1] : '#' + rank;
+        const propShare   = totalTop15 > 0 ? Math.floor((h.held / totalTop15) * WEEKLY_PROP) : 0;
         const totalReward = EQUAL_EACH + propShare;
-        const isMe = myAddr && e.addr===myAddr;
-        return `<div class="glass p-3 rounded-2xl flex items-center gap-3 ${isMe?'border border-[#FFD700]/30':''}">
-            <div class="text-lg w-8 text-center shrink-0">${medal}</div>
-            <div class="flex-1 min-w-0">
-                <p class="font-black text-xs ${isMe?'text-[#FFD700]':'text-white'} truncate">${e.addr?e.addr.slice(0,6)+'…'+e.addr.slice(-4):'Unknown'}${isMe?' (You)':''}</p>
-                <p class="text-[10px] text-white/40">${e.held.toLocaleString()} LGC held</p>
-            </div>
-            <div class="text-right shrink-0">
-                <p class="text-xs font-black text-[#FFD700]">+${totalReward.toLocaleString()}</p>
-                <p class="text-[9px] text-white/30">LGC/week</p>
-            </div>
-        </div>`;
+        const isMe        = myAddr && h.addr === myAddr;
+        const short       = h.addr.length > 10 ? h.addr.slice(0,6) + '…' + h.addr.slice(-4) : h.addr;
+        return '<div class="glass p-3 rounded-2xl flex items-center gap-3' + (isMe ? ' border border-[#FFD700]/30' : '') + '">'
+            + '<div class="text-lg w-8 text-center shrink-0">' + medal + '</div>'
+            + '<div class="flex-1 min-w-0">'
+            +   '<p class="font-black text-xs ' + (isMe ? 'text-[#FFD700]' : 'text-white') + ' truncate">' + short + (isMe ? ' (You)' : '') + '</p>'
+            +   '<p class="text-[10px] text-white/40">' + h.held.toLocaleString() + ' LGC held</p>'
+            + '</div>'
+            + '<div class="text-right shrink-0">'
+            +   '<p class="text-xs font-black text-[#FFD700]">+' + totalReward.toLocaleString() + '</p>'
+            +   '<p class="text-[9px] text-white/30">LGC/week</p>'
+            + '</div>'
+            + '</div>';
     }).join('');
 }
 
-function getLBSnapshot(){
-    try{ return JSON.parse(localStorage.getItem(LB_KEY)||'[]').filter(e=>e.addr!==LB_EXCLUDED); }catch{ return []; }
-}
-
-window.syncLeaderboard=()=>{
+window.syncLeaderboard = () => {
     hapticSelect();
-    if(walletAddress||friendlyAddress) fetchWalletHoldings(friendlyAddress||walletAddress);
-    renderLeaderboard();
-    showToast('Leaderboard refreshed');
+    if (walletAddress || friendlyAddress) fetchWalletHoldings(friendlyAddress || walletAddress);
+    renderLeaderboard(true); // force fresh fetch
+    showToast('Refreshing leaderboard…');
 };
 
-window.calcLbEstimate=()=>{
-    const mine=parseInt($('lb-my-hold')?.value)||0;
-    const total=parseInt($('lb-total-hold')?.value)||0;
-    const est=$('lb-estimate');const propEl=$('lb-prop-est');
-    if(!est||!propEl) return;
-    if(mine>0&&total>0&&mine<=total){
-        const prop=Math.floor((mine/total)*WEEKLY_PROP);
-        propEl.textContent=prop.toLocaleString()+' LGC';
+// Auto-refresh every 5 minutes while app is open
+setInterval(() => {
+    // Only refresh if the leaderboard tab is visible
+    const lbTab = $('tab-leaderboard');
+    if (lbTab && !lbTab.classList.contains('hidden')) renderLeaderboard(true);
+}, LB_CACHE_TTL);
+
+window.calcLbEstimate = () => {
+    const mine  = parseInt($('lb-my-hold')?.value) || 0;
+    const total = parseInt($('lb-total-hold')?.value) || 0;
+    const est   = $('lb-estimate');
+    const propEl = $('lb-prop-est');
+    if (!est || !propEl) return;
+    if (mine > 0 && total > 0 && mine <= total) {
+        propEl.textContent = Math.floor((mine / total) * WEEKLY_PROP).toLocaleString() + ' LGC';
         est.classList.remove('hidden');
-    } else { est.classList.add('hidden'); }
+    } else {
+        est.classList.add('hidden');
+    }
 };
 </script>
 </body>
