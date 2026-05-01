@@ -65,7 +65,7 @@
             <div class="text-center pt-2 pb-1"><p class="text-[10px] font-black uppercase text-white/30 tracking-widest">Mined Assets</p><h2 id="bal" class="text-6xl font-black tabular-nums mt-1">0</h2></div>
             <div class="glass p-4 rounded-2xl space-y-2"><div class="flex justify-between text-[10px] font-bold"><span class="text-white/40">Claim Progress</span><span id="claim-goal-label" class="text-[#FFD700]">0 / 15,000 LGC</span></div><div class="w-full h-2 bg-white/5 rounded-full overflow-hidden"><div id="claim-prog"></div></div></div>
             <div class="flex justify-center py-2"><button id="tap-btn" class="w-60 h-60 rounded-full bg-gradient-to-br from-[#1c2026] to-[#080a0d] border-8 border-white/5 shadow-2xl flex items-center justify-center"><i class="fa-solid fa-hammer text-6xl text-[#FFD700]" style="filter:drop-shadow(0 0 12px rgba(255,215,0,0.4))"></i></button></div>
-            <div class="glass p-5 rounded-3xl"><div class="flex justify-between text-sm font-bold mb-3"><span id="eng-t"><i class="fa-solid fa-bolt text-[#FFD700]"></i> 1000 / 1000</span><span id="tap-v" class="text-white/40">+10 per tap</span></div><div class="w-full h-2.5 bg-white/5 rounded-full overflow-hidden"><div id="eng-b" style="width:100%;height:100%;border-radius:9999px"></div></div><p id="tier-bonus-label" class="text-[9px] text-[#FFD700]/60 mt-2 text-right hidden"></p><p class="text-[9px] text-white/25 mt-1 text-right"><i class="fa-solid fa-microchip mr-1"></i>Hash rate scales with LGC held · Hold more = earn faster</p></div>
+            <div class="glass p-5 rounded-3xl"><div class="flex justify-between text-sm font-bold mb-3"><span id="eng-t"><i class="fa-solid fa-bolt text-[#FFD700]"></i> 1000 / 1000</span><span id="tap-v" class="text-white/40">+10 per tap</span></div><div class="w-full h-2.5 bg-white/5 rounded-full overflow-hidden"><div id="eng-b" style="width:100%;height:100%;border-radius:9999px"></div></div><p id="tier-bonus-label" class="text-[9px] text-[#FFD700]/60 mt-2 text-right hidden"></p><p class="text-[9px] text-white/25 mt-1 text-right"><i class="fa-solid fa-microchip mr-1"></i>Hash rate scales with LGC held · 5k=×1 · 10k=×2 · 100k=×20 · 200k=×40</p></div>
             <div class="grid grid-cols-2 gap-3"><button onclick="syncState()" class="glass p-4 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold active:opacity-60"><i class="fa-solid fa-rotate-right text-[#FFD700] text-xs"></i> Sync</button><button id="claim-btn" onclick="claimLGC()" disabled class="glass p-4 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold opacity-40 cursor-not-allowed"><i class="fa-solid fa-external-link-alt text-xs"></i> Claim</button></div>
             <div class="glass p-5 rounded-2xl space-y-3"><h4 class="text-sm font-bold"><i class="fa-solid fa-rocket text-[#FFD700] mr-2"></i>Mining Boosters</h4>
                 <button onclick="buy('mt')" class="w-full flex justify-between items-center active:opacity-70"><div class="text-left"><p class="font-bold text-xs">⚡ Multitap</p><p class="text-[10px] text-white/40">Level <span id="l-mt">1</span> · +2 per tap</p></div><div class="text-[#FFD700] font-black text-xs" id="c-mt">2,000 LGC</div></button>
@@ -288,30 +288,46 @@ function calcWithdrawalFeeNano(amount) {
 }
 
 // ── Holder multiplier system ──────────────────────────────────────────────────
-// Every 2,000 LGC held in wallet = ×2 multiplier on tap earnings AND energy regen
-// 0 LGC held     → ×1.0 (base, new users)
-// 2,000 held     → ×2.0
-// 4,000 held     → ×4.0   (2 × 2k = 2^2)
-// 6,000 held     → ×6.0   (3 × 2k)
-// etc. — capped at ×20 (10 × 2k = 20,000 LGC)
+// Tier-based boost system — hold LGC to earn faster:
+// < 5,000 LGC    → ×1.0  (base)
+// ≥ 5,000 LGC    → ×1x
+// ≥ 10,000 LGC   → ×2x
+// ≥ 100,000 LGC  → ×20x
+// ≥ 200,000 LGC  → ×40x
+// Intermediate amounts scale linearly between tiers
 //
 // POST-WITHDRAWAL PENALTY (for users who don't hold minimum after withdrawing):
 // First offence  → ×0.5
 // Second offence → ×0.25
 // Third+ offence → ×0.1
-// Penalty resets back to normal multiplier as soon as holdings ≥ 2,000 LGC
+// Penalty resets back to normal multiplier as soon as holdings ≥ 5,000 LGC
 const LGC_JETTON         = 'EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j';
-const HOLD_UNIT          = 2000;   // LGC per multiplier step
-const MULTIPLIER_PER_UNIT = 2;    // ×2 per step
-const MAX_MULTIPLIER     = 20;    // cap at ×20
-const MIN_HOLD_AFTER_WD  = 2000;  // must hold this much after withdrawal to avoid penalty
+const HOLD_UNIT          = 5000;   // minimum to avoid penalty / get base boost
+const MAX_MULTIPLIER     = 40;    // cap at ×40 (200k LGC)
+const MIN_HOLD_AFTER_WD  = 5000;  // must hold this much after withdrawal to avoid penalty
 const PENALTY_STEPS      = [0.5, 0.25, 0.1]; // offence 1, 2, 3+
+// Boost tiers: [minHeld, multiplier]
+const BOOST_TIERS = [
+    [200000, 40],
+    [100000, 20],
+    [ 10000,  2],
+    [  5000,  1],
+];
 
 // Compute the holder multiplier from on-chain balance (no penalty applied here)
 function calcHolderMultiplier(held) {
-    if (held < HOLD_UNIT) return 1.0;
-    const steps = Math.floor(held / HOLD_UNIT);
-    return Math.min(MAX_MULTIPLIER, steps * MULTIPLIER_PER_UNIT);
+    for (const [min, mult] of BOOST_TIERS) {
+        if (held >= min) return mult;
+    }
+    return 1.0; // base — no bonus below 5,000 LGC
+}
+
+// Returns the next tier threshold above current held amount
+function _nextTierThreshold(held) {
+    for (let i = BOOST_TIERS.length - 1; i >= 0; i--) {
+        if (BOOST_TIERS[i][0] > held) return BOOST_TIERS[i];
+    }
+    return null; // already at max
 }
 
 // Compute effective multiplier — applies penalty if active, else holder rate
@@ -448,7 +464,6 @@ function applyTier() {
     tierMultiplier = calcEffectiveMultiplier(heldLGC, penaltyCount);
     const label    = getTierLabel(tierMultiplier);
     const isPenalised = penaltyCount > 0 && heldLGC < MIN_HOLD_AFTER_WD;
-    const nextThreshold = (Math.floor(heldLGC / HOLD_UNIT) + 1) * HOLD_UNIT;
 
     // Update wallet tab tier card
     const tc = $('tier-card');
@@ -464,18 +479,20 @@ function applyTier() {
         if (isPenalised) {
             if (tp) { tp.style.width = '100%'; tp.style.background = '#ff4444'; }
             if (tnx) tnx.textContent = `⚠️ Hold ${MIN_HOLD_AFTER_WD.toLocaleString()} LGC to restore multiplier`;
-        } else if (heldLGC < HOLD_UNIT) {
-            if (tp) { tp.style.width = `${(heldLGC/HOLD_UNIT)*100}%`; tp.style.background=''; }
-            if (tnx) tnx.textContent = `Hold ${HOLD_UNIT.toLocaleString()} LGC for ×${MULTIPLIER_PER_UNIT} bonus`;
         } else {
-            const pct = Math.min(100, ((heldLGC % HOLD_UNIT) / HOLD_UNIT) * 100);
-            if (tp) { tp.style.width = `${pct}%`; tp.style.background=''; }
-            if (tnx) {
-                const next = nextThreshold;
-                const nextMult = Math.min(MAX_MULTIPLIER, calcHolderMultiplier(next));
-                tnx.textContent = tierMultiplier >= MAX_MULTIPLIER
-                    ? '👑 Maximum multiplier reached!'
-                    : `${(next - heldLGC).toLocaleString()} LGC to ×${nextMult}`;
+            const nextTier = _nextTierThreshold(heldLGC);
+            if (!nextTier) {
+                // Max tier reached
+                if (tp) { tp.style.width = '100%'; tp.style.background = ''; }
+                if (tnx) tnx.textContent = '👑 Maximum multiplier reached!';
+            } else {
+                const [nextMin, nextMult] = nextTier;
+                // Find the tier floor (tier below current next)
+                const tierFloorEntry = BOOST_TIERS.find(([m]) => m <= heldLGC);
+                const tierFloor = tierFloorEntry ? tierFloorEntry[0] : 0;
+                const pct = Math.min(100, ((heldLGC - tierFloor) / (nextMin - tierFloor)) * 100);
+                if (tp) { tp.style.width = `${pct}%`; tp.style.background = ''; }
+                if (tnx) tnx.textContent = `${(nextMin - heldLGC).toLocaleString()} LGC to ×${nextMult}`;
             }
         }
     }
@@ -492,7 +509,7 @@ function applyTier() {
             tbl.style.color = label.color;
             tbl.classList.remove('hidden');
         } else {
-            tbl.textContent = `Hold ${HOLD_UNIT.toLocaleString()} LGC for ×${MULTIPLIER_PER_UNIT} bonus`;
+            tbl.textContent = `Hold ${MIN_HOLD_AFTER_WD.toLocaleString()} LGC for ×1 boost · 10k for ×2 · 100k for ×20 · 200k for ×40`;
             tbl.style.color = 'rgba(255,215,0,0.4)';
             tbl.classList.remove('hidden');
         }
@@ -1039,6 +1056,14 @@ window.updateFeePreview=()=>{
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 // ── Live Leaderboard — reads top holders directly from TON blockchain ────────
+// Addresses explicitly hidden from the leaderboard
+const LB_HIDDEN_ADDRS = new Set([
+    'UQAtvtNPl9aYQtTTZ75vipXCt570-CG38shZ6kkRH-mHFPiC',
+    'EQBayBsz78ZJdZSzXHMOyHM5o_Lp2OYK8QMD1cgHACI2FTHB',
+    'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',
+]);
+const LB_MAX_HELD       = 1_000_000; // hide holders over 1M LGC
+// Keep old constant for backward compat (used elsewhere)
 const LB_EXCLUDED   = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
 const LB_CACHE_KEY  = 'lgc_lb_cache';
 const LB_CACHE_TTL  = 5 * 60 * 1000; // 5 minutes
@@ -1081,7 +1106,12 @@ async function fetchLiveHolders() {
             addr:  w.owner || w.owner_address || '?',
             held:  w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
         }))
-        .filter(h => h.addr !== LB_EXCLUDED && h.held > 0)
+        .filter(h =>
+            h.held > 0 &&
+            h.held <= LB_MAX_HELD &&
+            !LB_HIDDEN_ADDRS.has(h.addr) &&
+            !h.addr.startsWith('EQ')
+        )
         .sort((a, b) => b.held - a.held)
         .slice(0, TOP_N);
 
