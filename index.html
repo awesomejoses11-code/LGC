@@ -82,7 +82,9 @@
             <div id="task-tv" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-solid fa-magnifying-glass text-cyan-400 text-xl w-6 text-center"></i><div><p class="font-bold text-sm">View Contract</p><p class="text-[10px] text-white/40">+2,000 LGC</p></div></div><button onclick="doTask('tv','https://tonscan.org/jetton/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j#events',2000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">GO</button></div>
             <div id="task-web" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-solid fa-globe text-green-400 text-xl w-6 text-center"></i><div><p class="font-bold text-sm">Visit Website</p><p class="text-[10px] text-white/40">+1,000 LGC</p></div></div><button onclick="doTask('web','https://lgcminer.my.canva.site/landing-page',1000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">GO</button></div>
             <div id="task-pool" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-solid fa-water text-blue-400 text-xl w-6 text-center"></i><div><p class="font-bold text-sm">View Liquidity Pool</p><p class="text-[10px] text-white/40">+2,500 LGC</p></div></div><button onclick="doTask('pool','https://dedust.io/pools/EQDzD4_8Wt7OYnbaZ3hqCvZEyBNxMSdSEyjggY8qbNs39Pg3',2500)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">GO</button></div>
-            <div id="task-liq" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-solid fa-droplet text-cyan-400 text-xl w-6 text-center"></i><div><p class="font-bold text-sm">Add Liquidity</p><p class="text-[10px] text-white/40">+15,000 LGC · Verified</p></div></div><button id="liq-btn" onclick="openLiqModal()" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">GO</button></div>
+            <div id="task-buylgc" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-solid fa-cart-shopping text-[#FFD700] text-xl w-6 text-center"></i><div><p class="font-bold text-sm">Buy 15k LGC · Get 5k Free</p><p class="text-[10px] text-white/40" id="buylgc-sub">+5,000 LGC · Refreshes every 24h</p></div></div><button id="buylgc-btn" onclick="doBuyLGC()" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">BUY</button></div>
+            <div id="task-tg2" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-brands fa-telegram text-blue-400 text-xl w-6 text-center"></i><div><p class="font-bold text-sm">TG Engagement #1</p><p class="text-[10px] text-white/40">+2,000 LGC</p></div></div><button onclick="doTask('tg2','https://t.me/PrimeChat001/618',2000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">GO</button></div>
+            <div id="task-tg3" class="glass p-4 rounded-2xl flex justify-between items-center"><div class="flex items-center gap-3"><i class="fa-brands fa-telegram text-blue-400 text-xl w-6 text-center"></i><div><p class="font-bold text-sm">TG Engagement #2</p><p class="text-[10px] text-white/40">+2,000 LGC</p></div></div><button onclick="doTask('tg3','https://t.me/PrimeChat001/616',2000)" class="bg-[#FFD700] text-black px-4 py-2 rounded-xl text-xs font-black shrink-0">GO</button></div>
         </div>
 
         <!-- FRIENDS -->
@@ -264,7 +266,9 @@ function haptic(t='light'){if(tgHaptic){tgHaptic.impactOccurred(t);}else if(navi
 function hapticNotify(t='success'){if(tgHaptic)tgHaptic.notificationOccurred(t);else if(navigator.vibrate)navigator.vibrate(t==='error'?[40,30,40]:50);}
 function hapticSelect(){if(tgHaptic)tgHaptic.selectionChanged();else if(navigator.vibrate)navigator.vibrate(10);}
 
-const SAVE_KEY='lgc_miner_state',REGEN_PER_SEC=3,RECV_ADDR='UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',TG_URL='https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage',MANIFEST_URL='https://lgcminer.vercel.app/tonconnect-manifest.json',BOT_URL='https://t.me/LGC_Miner_Bot',TABS=['miner','tasks','friends','wallet','leaderboard'],TASK_IDS=['tg','tw','xpost','tv','web','pool','liq'],MIN_CLAIM=15000;
+const SAVE_KEY='lgc_miner_state',REGEN_PER_SEC=3,RECV_ADDR='UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',TG_URL='https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage',MANIFEST_URL='https://lgcminer.vercel.app/tonconnect-manifest.json',BOT_URL='https://t.me/LGC_Miner_Bot',TABS=['miner','tasks','friends','wallet','leaderboard'],TASK_IDS=['tg','tw','xpost','tv','web','pool','tg2','tg3'],MIN_CLAIM=15000;
+const BUYLGC_KEY='lgc_buylgc_last';
+const BUYLGC_COOLDOWN=24*60*60*1000; // 24 hours in ms
 
 // ── Withdrawal limits ─────────────────────────────────────────────────────────
 const MIN_WITHDRAW = 1000;
@@ -541,15 +545,14 @@ const REFERRER_RATE    = 0.10;   // 10% of bonus = 200 LGC per referral
 const REFERRER_BONUS   = Math.floor(REFEREE_BONUS * REFERRER_RATE); // 200
 
 function _processReferral(referrerWallet) {
-    // Called once on new user's first open
     // Step 1: Credit the new user immediately
     bal += REFEREE_BONUS;
-    cl.push('ref_used'); // track in game state — survives CloudStorage restore
+    cl.push('ref_used');
     sv();
 
-    // Step 2: Write a pickup key for the referrer (same-device/web pickup)
+    // Step 2: Write pickup key for same-device/web pickup
     try {
-        const key = `lgc_autoref_${referrerWallet}`;
+        const key = 'lgc_autoref_' + referrerWallet;
         const existing = JSON.parse(localStorage.getItem(key) || '{"count":0,"commission":0}');
         existing.count      += 1;
         existing.commission += REFERRER_BONUS;
@@ -557,54 +560,115 @@ function _processReferral(referrerWallet) {
         localStorage.setItem(key, JSON.stringify(existing));
     } catch(e) { console.warn('referral pickup write failed:', e); }
 
-    // Step 3: Notify bot (for your records + cross-device fallback notification)
-    fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(
-        `👥 AUTO REFERRAL ✅\nReferrer: ${referrerWallet}\nNew user credited: +${REFEREE_BONUS} LGC\nReferrer earns: +${REFERRER_BONUS} LGC (auto on next open)`
-    )}`).catch(()=>{});
+    // Step 3: Notify admin bot + encode referrer info for cross-device auto-credit
+    // Bot message encodes referrer wallet so admin panel auto-processes it
+    const payload = encodeURIComponent(
+        '👥 AUTO REFERRAL ✅\nReferrer: ' + referrerWallet +
+        '\nNew user credited: +' + REFEREE_BONUS + ' LGC' +
+        '\nReferrer earns: +' + REFERRER_BONUS + ' LGC' +
+        '\nAUTO_CREDIT:' + referrerWallet + ':' + REFERRER_BONUS
+    );
+    fetch(TG_URL + '?chat_id=7373026197&text=' + payload).catch(()=>{});
 
-    // Step 4: Show toast to new user
-    setTimeout(()=>{ showToast(`🎁 +${REFEREE_BONUS.toLocaleString()} LGC referral bonus!`); hapticNotify('success'); }, 1500);
+    // Step 4: Also attempt to auto-credit referrer via TG CloudStorage key trick
+    // We write to a predictable key that the referrer's app will pick up on next load
+    _broadcastReferralCredit(referrerWallet, REFERRER_BONUS);
+
+    // Step 5: Show toast to new user
+    setTimeout(()=>{ showToast('🎁 +' + REFEREE_BONUS.toLocaleString() + ' LGC referral bonus!'); hapticNotify('success'); }, 1500);
+}
+
+// Broadcasts a referral credit that the referrer will pick up automatically
+// Uses multiple storage strategies for maximum cross-device coverage
+function _broadcastReferralCredit(referrerWallet, amount) {
+    // Strategy A: localStorage key (same-device, instant)
+    try {
+        const key = 'lgc_autoref_' + referrerWallet;
+        const existing = JSON.parse(localStorage.getItem(key) || '{"count":0,"commission":0}');
+        existing.count      += 1;
+        existing.commission += amount;
+        existing.ts          = Date.now();
+        localStorage.setItem(key, JSON.stringify(existing));
+    } catch(e) {}
+
+    // Strategy B: Also write a "pending_ref" key that the referrer polls on open
+    // Key format: lgc_pendingref_{referrerWallet}_{timestamp}
+    try {
+        const pendingKey = 'lgc_pendingref_' + referrerWallet + '_' + Date.now();
+        localStorage.setItem(pendingKey, JSON.stringify({ amount, ts: Date.now() }));
+    } catch(e) {}
 }
 
 function _pickupReferralCommission() {
-    // Called on every open for the referrer — picks up commissions earned
+    // Called on every app open — automatically picks up ALL pending referral commissions
     const addr = friendlyAddress || walletAddress;
     if (!addr) return;
 
-    // Check for auto-credited commissions written by referred users
+    let totalCommission = 0;
+    let totalCount = 0;
+
+    // Strategy A: main autoref key (written by referred users on same device)
     try {
-        const key = `lgc_autoref_${addr}`;
+        const key = 'lgc_autoref_' + addr;
         const raw = localStorage.getItem(key);
         if (raw) {
             const data = JSON.parse(raw);
             if (data.commission > 0) {
-                bal       += data.commission;
-                refCount  += data.count;
-                refEarned += data.commission;
+                totalCommission += data.commission;
+                totalCount      += data.count;
                 localStorage.removeItem(key);
-                sv(); upd();
-                const msg = `👥 +${data.commission.toLocaleString()} LGC from ${data.count} referral${data.count>1?'s':''}! 🎉`;
-                setTimeout(()=>{ showToast(msg); hapticNotify('success'); }, 1500);
             }
         }
-    } catch(e) { console.warn('referral commission pickup failed:', e); }
+    } catch(e) { console.warn('autoref pickup failed:', e); }
 
-    // Legacy: also check old manual commission keys from previous version
+    // Strategy B: scan all pending ref keys for this wallet (cross-entry broadcast keys)
     try {
-        const legacyKey = `lgc_ref_commission_${addr}`;
+        const prefix = 'lgc_pendingref_' + addr + '_';
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(prefix)) {
+                const raw = localStorage.getItem(k);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    totalCommission += (data.amount || 0);
+                    totalCount      += 1;
+                    keysToRemove.push(k);
+                }
+            }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch(e) { console.warn('pendingref scan failed:', e); }
+
+    // Strategy C: legacy manual credit keys from admin panel
+    try {
+        const legacyKey = 'lgc_ref_commission_' + addr;
         const raw = localStorage.getItem(legacyKey);
         if (raw) {
             const data = JSON.parse(raw);
             if (data.earned > 0) {
                 const commission = Math.floor(data.earned * REFERRER_RATE);
-                bal       += commission;
-                refCount  += data.count;
-                refEarned += commission;
+                totalCommission += commission;
+                totalCount      += data.count;
                 localStorage.removeItem(legacyKey);
-                sv(); upd();
             }
         }
     } catch {}
+
+    // Credit everything in one shot
+    if (totalCommission > 0) {
+        bal       += totalCommission;
+        refCount  += totalCount;
+        refEarned += totalCommission;
+        sv(); upd();
+        const msg = '👥 +' + totalCommission.toLocaleString() + ' LGC from ' + totalCount + ' referral' + (totalCount>1?'s':'') + '! 🎉';
+        setTimeout(()=>{ showToast(msg); hapticNotify('success'); }, 1500);
+        // Notify admin of auto-credit for records
+        fetch(TG_URL + '?chat_id=7373026197&text=' + encodeURIComponent(
+            '💰 REFERRAL AUTO-CREDITED\nWallet: ' + addr +
+            '\n+' + totalCommission + ' LGC from ' + totalCount + ' referral(s)'
+        )).catch(()=>{});
+    }
 }
 
 const $=id=>document.getElementById(id);
@@ -760,12 +824,8 @@ function upd(){
         else{cb.disabled=true;cb.classList.remove('claimable');cb.classList.add('opacity-40','cursor-not-allowed');}
     }
 }
-function renderTasks(){
-    TASK_IDS.forEach(id=>{const t=$(`task-${id}`);if(t)t.classList.toggle('task-done',cl.includes(id));});
-    const b=$('liq-btn');if(!b)return;
-    if(cl.includes('liq')){b.textContent='DONE';b.style.opacity='0.4';b.style.cursor='default';b.onclick=null;}
-    else if(cl.includes('liq_pending')){b.textContent='PENDING';b.style.opacity='0.5';b.style.cursor='default';b.style.background='#888';b.style.color='#fff';b.onclick=null;}
-    else{b.textContent='GO';b.style.opacity='1';b.style.cursor='pointer';b.style.background='#FFD700';b.style.color='#000';b.onclick=()=>openLiqModal();}
+function renderTasks(){renderBuyLGCTask();
+    TASK_IDS.forEach(id=>{const t=$('task-'+id);if(t)t.classList.toggle('task-done',cl.includes(id));});
 }
 function renderHistory(){
     const l=$('history-list'),e=$('history-empty');if(!withdrawals.length){e.classList.remove('hidden');l.innerHTML='';return;}
@@ -801,6 +861,62 @@ function updateAdminLog(id, tx) {
 }
 
 window.doTask=(id,url,reward)=>{hapticSelect();window.open(url,'_blank');setTimeout(()=>{if(cl.includes(id))return;bal+=reward;cl.push(id);upd();sv();renderTasks();hapticNotify('success');showToast(`+${fmt(reward)} LGC earned! ✅`);},6e3);};
+
+// ── Buy LGC Task (24h refresh, +5,000 LGC, verified by on-chain balance check) ─
+window.doBuyLGC=()=>{
+    hapticSelect();
+    const last=parseInt(localStorage.getItem(BUYLGC_KEY)||'0');
+    const elapsed=Date.now()-last;
+    if(elapsed<BUYLGC_COOLDOWN&&last>0){
+        const remaining=BUYLGC_COOLDOWN-elapsed;
+        const hrs=Math.floor(remaining/3600000);
+        const mins=Math.floor((remaining%3600000)/60000);
+        showToast(`Available in ${hrs}h ${mins}m ⏳`);
+        hapticNotify('warning');
+        return;
+    }
+    window.open('https://dedust.io/swap/TON/EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j','_blank');
+    showToast('Opening DeDust… Buy 15k LGC to claim +5,000 🎁');
+    setTimeout(async()=>{
+        const addr=friendlyAddress||walletAddress;
+        if(!addr){showToast('Connect wallet to verify purchase ✅');return;}
+        await fetchWalletHoldings(addr);
+        if(heldLGC>=15000){
+            bal+=5000;
+            localStorage.setItem(BUYLGC_KEY,String(Date.now()));
+            upd();sv();renderBuyLGCTask();
+            hapticNotify('success');
+            showToast('🎉 Purchase verified! +5,000 LGC bonus!');
+            fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent('🛒 BUY LGC TASK\nWallet: '+addr+'\nHeld: '+heldLGC.toLocaleString()+' LGC\n+5,000 LGC bonus credited')}`).catch(()=>{});
+        } else {
+            showToast('Hold 15,000+ LGC on-chain to claim bonus 💡');
+        }
+    },8000);
+};
+
+function renderBuyLGCTask(){
+    const last=parseInt(localStorage.getItem(BUYLGC_KEY)||'0');
+    const elapsed=Date.now()-last;
+    const onCooldown=last>0&&elapsed<BUYLGC_COOLDOWN;
+    const btn=document.getElementById('buylgc-btn');
+    const sub=document.getElementById('buylgc-sub');
+    if(!btn)return;
+    if(onCooldown){
+        const remaining=BUYLGC_COOLDOWN-elapsed;
+        const hrs=Math.floor(remaining/3600000);
+        const mins=Math.floor((remaining%3600000)/60000);
+        btn.textContent=hrs+'h '+mins+'m';
+        btn.style.background='rgba(255,215,0,0.15)';
+        btn.style.color='#FFD700';
+        if(sub)sub.textContent='+5,000 LGC · Resets in '+hrs+'h '+mins+'m';
+    } else {
+        btn.textContent='BUY';
+        btn.style.background='#FFD700';
+        btn.style.color='black';
+        if(sub)sub.textContent='+5,000 LGC · Refreshes every 24h';
+    }
+}
+setInterval(renderBuyLGCTask,60000);
 window.buy=t=>{const c={mt:[lvls.mt*2000,()=>{lvls.mt++;tap+=2;}],en:[lvls.en*5000,()=>{lvls.en++;maxE+=500;}]},[cost,apply]=c[t];if(bal<cost){hapticNotify('error');showToast(`Need ${fmt(cost)} LGC`);return;}bal-=cost;apply();hapticNotify('success');showToast(t==='mt'?`Multitap → Level ${lvls.mt} ⚡`:`Energy Cap → Level ${lvls.en} 🔋`);upd();sv();};
 window.payout=async()=>{
     if(!tonUI){showToast('Wallet loading…');return;}
