@@ -1089,33 +1089,83 @@ function _setLBCache(holders) {
     try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), holders })); } catch {}
 }
 
-// Fetches top holders from TonCenter API, filters excluded wallet, returns top 15
+// Uses Claude API to intelligently filter holders — handles any address format,
+// removes hidden addresses, EQ-prefix addresses, and >1M LGC whales.
+async function claudeFilterHolders(rawHolders) {
+    const HIDDEN = [
+        'UQAtvtNPl9aYQtTTZ75vipXCt570-CG38shZ6kkRH-mHFPiC',
+        'EQBayBsz78ZJdZSzXHMOyHM5o_Lp2OYK8QMD1cgHACI2FTHB',
+        'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',
+    ];
+
+    const prompt = `You are a leaderboard filter for an LGC token on TON blockchain.
+
+Given this list of holders (JSON array with addr and held fields), return ONLY the holders that pass ALL of these rules:
+1. Remove any address that exactly matches one of these hidden addresses (compare case-sensitively): ${JSON.stringify(HIDDEN)}
+2. Remove any address that STARTS WITH "EQ" (after trimming whitespace)
+3. Remove any holder with held > 1000000 (more than 1 million LGC)
+4. Remove any holder with held <= 0
+
+Respond ONLY with a valid JSON array of the passing holders, preserving their original addr and held values. No explanation, no markdown, no backticks — just the raw JSON array.
+
+Holders to filter:
+${JSON.stringify(rawHolders)}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            messages: [{ role: 'user', content: prompt }]
+        })
+    });
+
+    if (!response.ok) throw new Error('Claude API error: ' + response.status);
+    const result = await response.json();
+    const text = result.content?.map(b => b.text || '').join('').trim();
+    // Strip any accidental markdown fences
+    const clean = text.replace(/^```[\w]*\n?/,'').replace(/\n?```$/,'').trim();
+    return JSON.parse(clean);
+}
+
+// Fetches top holders from TonCenter API, uses Claude to filter, returns top 15
 async function fetchLiveHolders() {
-    // Fetch top 25 so we still have 15 after excluding the admin wallet
+    // Fetch top 35 so we still have 15 after Claude filters out hidden/EQ/whale addresses
     const url = 'https://toncenter.com/api/v3/jetton/wallets'
         + '?jetton_address=' + encodeURIComponent(LGC_JETTON)
-        + '&limit=25&sort_by=balance&sort_order=desc';
+        + '&limit=35&sort_by=balance&sort_order=desc';
 
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
 
     const wallets = data?.jetton_wallets || [];
-    const holders = wallets
-        .map(w => ({
-            addr:  w.owner || w.owner_address || '?',
-            held:  w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
-        }))
-        .filter(h =>
+    const rawHolders = wallets.map(w => ({
+        addr: w.owner || w.owner_address || '?',
+        held: w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
+    }));
+
+    // Let Claude handle the filtering — it's format-aware and catches edge cases
+    let filtered;
+    try {
+        filtered = await claudeFilterHolders(rawHolders);
+    } catch (e) {
+        console.warn('Claude filter failed, falling back to JS filter:', e.message);
+        // Fallback: plain JS filter if Claude API is unavailable
+        filtered = rawHolders.filter(h =>
             h.held > 0 &&
-            h.held <= LB_MAX_HELD &&
-            !LB_HIDDEN_ADDRS.has(h.addr) &&
-            !h.addr.startsWith('EQ')
-        )
+            h.held <= 1_000_000 &&
+            !['UQAtvtNPl9aYQtTTZ75vipXCt570-CG38shZ6kkRH-mHFPiC',
+              'EQBayBsz78ZJdZSzXHMOyHM5o_Lp2OYK8QMD1cgHACI2FTHB',
+              'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf'].includes(h.addr) &&
+            !h.addr.trimStart().startsWith('EQ')
+        );
+    }
+
+    return filtered
         .sort((a, b) => b.held - a.held)
         .slice(0, TOP_N);
-
-    return holders;
 }
 
 // Main: fetch (or use cache) then render — called on tab open + refresh button
