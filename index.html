@@ -65,7 +65,7 @@
             <div class="text-center pt-2 pb-1"><p class="text-[10px] font-black uppercase text-white/30 tracking-widest">Mined Assets</p><h2 id="bal" class="text-6xl font-black tabular-nums mt-1">0</h2></div>
             <div class="glass p-4 rounded-2xl space-y-2"><div class="flex justify-between text-[10px] font-bold"><span class="text-white/40">Claim Progress</span><span id="claim-goal-label" class="text-[#FFD700]">0 / 15,000 LGC</span></div><div class="w-full h-2 bg-white/5 rounded-full overflow-hidden"><div id="claim-prog"></div></div></div>
             <div class="flex justify-center py-2"><button id="tap-btn" class="w-60 h-60 rounded-full bg-gradient-to-br from-[#1c2026] to-[#080a0d] border-8 border-white/5 shadow-2xl flex items-center justify-center"><i class="fa-solid fa-hammer text-6xl text-[#FFD700]" style="filter:drop-shadow(0 0 12px rgba(255,215,0,0.4))"></i></button></div>
-            <div class="glass p-5 rounded-3xl"><div class="flex justify-between text-sm font-bold mb-3"><span id="eng-t"><i class="fa-solid fa-bolt text-[#FFD700]"></i> 1000 / 1000</span><span id="tap-v" class="text-white/40">+10 per tap</span></div><div class="w-full h-2.5 bg-white/5 rounded-full overflow-hidden"><div id="eng-b" style="width:100%;height:100%;border-radius:9999px"></div></div></div>
+            <div class="glass p-5 rounded-3xl"><div class="flex justify-between text-sm font-bold mb-3"><span id="eng-t"><i class="fa-solid fa-bolt text-[#FFD700]"></i> 1000 / 1000</span><span id="tap-v" class="text-white/40">+10 per tap</span></div><div class="w-full h-2.5 bg-white/5 rounded-full overflow-hidden"><div id="eng-b" style="width:100%;height:100%;border-radius:9999px"></div></div><p id="tier-bonus-label" class="text-[9px] text-[#FFD700]/60 mt-2 text-right hidden"></p><p class="text-[9px] text-white/25 mt-1 text-right"><i class="fa-solid fa-microchip mr-1"></i>Hash rate scales with LGC held · Hold more = earn faster</p></div>
             <div class="grid grid-cols-2 gap-3"><button onclick="syncState()" class="glass p-4 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold active:opacity-60"><i class="fa-solid fa-rotate-right text-[#FFD700] text-xs"></i> Sync</button><button id="claim-btn" onclick="claimLGC()" disabled class="glass p-4 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold opacity-40 cursor-not-allowed"><i class="fa-solid fa-external-link-alt text-xs"></i> Claim</button></div>
             <div class="glass p-5 rounded-2xl space-y-3"><h4 class="text-sm font-bold"><i class="fa-solid fa-rocket text-[#FFD700] mr-2"></i>Mining Boosters</h4>
                 <button onclick="buy('mt')" class="w-full flex justify-between items-center active:opacity-70"><div class="text-left"><p class="font-bold text-xs">⚡ Multitap</p><p class="text-[10px] text-white/40">Level <span id="l-mt">1</span> · +2 per tap</p></div><div class="text-[#FFD700] font-black text-xs" id="c-mt">2,000 LGC</div></button>
@@ -116,15 +116,121 @@
         <div id="tab-wallet" class="tab-content hidden space-y-5">
             <h3 class="text-2xl font-black">Wallet</h3>
             <div id="wallet-warning" class="glass p-4 rounded-2xl text-center text-yellow-400 text-xs font-bold hidden"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Connect your TON wallet first</div>
+
+            <!-- Hash rate tier badge -->
+            <div id="tier-card" class="glass p-4 rounded-2xl hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] text-white/40 uppercase font-black tracking-wider mb-1">Mining Tier</p>
+                        <p id="tier-name" class="text-sm font-black text-[#FFD700]">Checking…</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-white/40 mb-1">Held in wallet</p>
+                        <p id="tier-held" class="text-sm font-black">— LGC</p>
+                    </div>
+                </div>
+                <div class="mt-3 w-full h-1.5 bg-white/5 rounded-full overflow-hidden"><div id="tier-prog" class="h-full rounded-full bg-gradient-to-r from-[#FFD700] to-[#FDB931]" style="width:0%;transition:width 0.6s"></div></div>
+                <p id="tier-next" class="text-[9px] text-white/30 mt-1.5 text-right"></p>
+            </div>
+
             <div class="glass p-6 rounded-3xl space-y-4">
                 <div class="flex justify-between text-xs"><span class="text-white/40">Balance</span><span id="wallet-bal" class="text-[#FFD700] font-black text-lg">0 LGC</span></div>
-                <div class="bg-yellow-500/10 p-3 rounded-xl text-[10px] text-yellow-500 uppercase font-bold text-center tracking-wide">Fee: 0.1 TON · Minimum: 15,000 LGC</div>
-                <input type="number" id="w-amt" placeholder="Enter LGC amount" min="15000" class="inp">
-                <button onclick="payout()" class="w-full bg-[#FFD700] text-black font-black py-5 rounded-2xl shadow-lg uppercase tracking-wide text-sm active:opacity-80">Pay 0.1 TON &amp; Withdraw</button>
+                <div class="bg-yellow-500/10 p-3 rounded-xl text-[10px] text-yellow-500 uppercase font-bold text-center tracking-wide">Min: 1,000 LGC · No maximum · Liquidity pool fee applies</div>
+                <input type="number" id="w-amt" placeholder="Enter amount (min 1,000 LGC)" min="1000" class="inp" oninput="updateFeePreview()">
+                <div id="fee-preview" class="text-[10px] text-white/40 text-center hidden">Fee: <span id="fee-amt" class="text-[#FFD700] font-bold">0.10 TON</span></div>
+                <button onclick="payout()" id="withdraw-btn" class="w-full bg-[#FFD700] text-black font-black py-5 rounded-2xl shadow-lg uppercase tracking-wide text-sm active:opacity-80">Withdraw LGC</button>
             </div>
             <div class="space-y-3"><div class="flex justify-between items-center"><h4 class="text-sm font-bold">Recent Withdrawals</h4><button onclick="clearHistory()" class="text-[10px] text-white/25 font-bold px-3 py-1 rounded-lg border border-white/10 active:bg-white/5">CLEAR</button></div>
                 <div id="history-empty" class="glass p-8 rounded-2xl text-center text-white/30 text-sm"><i class="fa-solid fa-inbox text-2xl mb-2 block opacity-50"></i>No withdrawals yet</div>
                 <div id="history-list" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div id="tab-leaderboard" class="tab-content hidden space-y-4">
+            <div class="text-center pt-2">
+                <p class="text-[10px] font-black uppercase text-white/30 tracking-widest">Weekly Competition</p>
+                <h2 class="text-2xl font-black mt-1">🏆 Top 15 Holders</h2>
+                <p class="text-[10px] text-white/40 mt-1">Snapshots taken multiple times weekly · Must hold consistently</p>
+            </div>
+
+            <!-- Weekly prize pool -->
+            <div class="glass p-5 rounded-3xl space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-sm font-black"><i class="fa-solid fa-coins text-[#FFD700] mr-2"></i>Weekly Prize Pool</h4>
+                    <span class="text-[#FFD700] font-black text-lg">450,000 LGC</span>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center p-3 rounded-2xl" style="background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.12)">
+                        <div>
+                            <p class="font-black text-xs text-[#FFD700]">Equal Share · Top 15</p>
+                            <p class="text-[10px] text-white/40">10,000 LGC each (equal split)</p>
+                        </div>
+                        <span class="font-black text-sm text-white">150,000 LGC</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 rounded-2xl" style="background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.12)">
+                        <div>
+                            <p class="font-black text-xs text-[#FFD700]">Proportional · Top 15</p>
+                            <p class="text-[10px] text-white/40">Based on holdings share</p>
+                        </div>
+                        <span class="font-black text-sm text-white">300,000 LGC</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- How to qualify -->
+            <div class="glass p-4 rounded-2xl space-y-2">
+                <h4 class="text-xs font-black text-white/60 uppercase tracking-wider">How to Qualify</h4>
+                <div class="space-y-2 text-[11px] text-white/60 leading-relaxed">
+                    <p><i class="fa-solid fa-check-circle text-[#FFD700] mr-2"></i>Hold LGC in your TON wallet consistently all week</p>
+                    <p><i class="fa-solid fa-check-circle text-[#FFD700] mr-2"></i>Multiple snapshots taken — you must appear in all of them</p>
+                    <p><i class="fa-solid fa-check-circle text-[#FFD700] mr-2"></i>Only consistent Top 15 holders each snapshot qualify</p>
+                    <p><i class="fa-solid fa-check-circle text-[#FFD700] mr-2"></i>Rewards distributed at end of each week</p>
+                </div>
+            </div>
+
+            <!-- Your holdings -->
+            <div class="glass p-4 rounded-2xl">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="text-xs font-black text-white/60 uppercase tracking-wider">Your On-Chain Holdings</h4>
+                    <button onclick="syncLeaderboard()" class="text-[10px] text-[#FFD700] font-bold border border-[#FFD700]/20 px-2 py-1 rounded-lg active:opacity-60"><i class="fa-solid fa-rotate-right text-[8px] mr-1"></i>Refresh</button>
+                </div>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p id="lb-held" class="text-2xl font-black text-[#FFD700]">—</p>
+                        <p class="text-[10px] text-white/40">LGC held in wallet</p>
+                    </div>
+                    <div class="text-right">
+                        <p id="lb-rank-label" class="text-sm font-black text-white/60">Connect wallet</p>
+                        <p class="text-[10px] text-white/40">to see your rank</p>
+                    </div>
+                </div>
+                <div id="lb-no-wallet" class="mt-3 text-[10px] text-yellow-500/80 text-center font-bold hidden"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Connect your TON wallet to participate</div>
+            </div>
+
+            <!-- Top 15 leaderboard list (static display from admin snapshot) -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <h4 class="text-sm font-bold">Current Snapshot</h4>
+                    <span id="lb-week-label" class="text-[9px] text-white/25 font-bold">Updated weekly</span>
+                </div>
+                <div id="lb-list" class="space-y-2">
+                    <!-- Populated by renderLeaderboard() -->
+                    <div class="glass p-6 rounded-2xl text-center text-white/30 text-xs"><i class="fa-solid fa-hourglass-half text-2xl mb-2 block opacity-40"></i>Leaderboard snapshot loading…<br><span class="text-[10px] mt-1 block">Results appear after the first weekly snapshot</span></div>
+                </div>
+            </div>
+
+            <!-- Reward estimate calculator -->
+            <div class="glass p-4 rounded-2xl space-y-3">
+                <h4 class="text-xs font-black text-white/60 uppercase tracking-wider">Estimate Your Reward</h4>
+                <p class="text-[10px] text-white/40">If you're in the Top 15, your proportional share of 300,000 LGC depends on your holdings vs total held by Top 15.</p>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="lb-my-hold" placeholder="Your LGC held" class="inp text-xs py-3" oninput="calcLbEstimate()">
+                    <input type="number" id="lb-total-hold" placeholder="Total Top 15 LGC" class="inp text-xs py-3" oninput="calcLbEstimate()">
+                </div>
+                <div id="lb-estimate" class="text-center text-[11px] text-white/50 hidden">
+                    Equal share: <span class="text-[#FFD700] font-black">10,000 LGC</span> + Proportional: <span id="lb-prop-est" class="text-[#FFD700] font-black">—</span>
+                </div>
             </div>
         </div>
 
@@ -135,6 +241,7 @@
         <button onclick="switchTab('tasks')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-list-check text-sm"></i><span class="text-[9px] font-black">TASKS</span></button>
         <button onclick="switchTab('friends')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-users text-sm"></i><span class="text-[9px] font-black">FRIENDS</span></button>
         <button onclick="switchTab('wallet')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-wallet text-sm"></i><span class="text-[9px] font-black">WALLET</span></button>
+        <button onclick="switchTab('leaderboard')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-trophy text-sm"></i><span class="text-[9px] font-black">TOP 15</span></button>
     </nav>
 
     <div id="liq-modal" class="modal-overlay">
@@ -157,7 +264,60 @@ function haptic(t='light'){if(tgHaptic){tgHaptic.impactOccurred(t);}else if(navi
 function hapticNotify(t='success'){if(tgHaptic)tgHaptic.notificationOccurred(t);else if(navigator.vibrate)navigator.vibrate(t==='error'?[40,30,40]:50);}
 function hapticSelect(){if(tgHaptic)tgHaptic.selectionChanged();else if(navigator.vibrate)navigator.vibrate(10);}
 
-const SAVE_KEY='lgc_miner_state',REGEN_PER_SEC=3,RECV_ADDR='UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',TG_URL='https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage',MANIFEST_URL='https://lgcminer.vercel.app/tonconnect-manifest.json',BOT_URL='https://t.me/LGC_Miner_Bot',TABS=['miner','tasks','friends','wallet'],TASK_IDS=['tg','tw','xpost','tv','web','pool','liq'],MIN_CLAIM=15000;
+const SAVE_KEY='lgc_miner_state',REGEN_PER_SEC=3,RECV_ADDR='UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',TG_URL='https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage',MANIFEST_URL='https://lgcminer.vercel.app/tonconnect-manifest.json',BOT_URL='https://t.me/LGC_Miner_Bot',TABS=['miner','tasks','friends','wallet','leaderboard'],TASK_IDS=['tg','tw','xpost','tv','web','pool','liq'],MIN_CLAIM=15000;
+
+// ── Withdrawal limits ─────────────────────────────────────────────────────────
+const MIN_WITHDRAW = 1000;
+// No maximum — users can withdraw any amount in a single transaction
+
+// Dynamic Progressive Withdrawal Fee:
+// 1,000 – 5,000 LGC → 0.10 TON flat fee
+// Every additional 1,000 LGC above 5,000 LGC → +0.02 TON per extra 1k
+function calcWithdrawalFee(amount) {
+    if (amount <= 5000) return 0.10;
+    const extraK = Math.ceil((amount - 5000) / 1000);
+    return Math.round((0.10 + extraK * 0.02) * 100) / 100;
+}
+// Returns fee in nanoTON (for sendTransaction)
+function calcWithdrawalFeeNano(amount) {
+    return Math.round(calcWithdrawalFee(amount) * 1e9);
+}
+
+// ── Holder multiplier system ──────────────────────────────────────────────────
+// Every 2,000 LGC held in wallet = ×2 multiplier on tap earnings AND energy regen
+// 0 LGC held     → ×1.0 (base, new users)
+// 2,000 held     → ×2.0
+// 4,000 held     → ×4.0   (2 × 2k = 2^2)
+// 6,000 held     → ×6.0   (3 × 2k)
+// etc. — capped at ×20 (10 × 2k = 20,000 LGC)
+//
+// POST-WITHDRAWAL PENALTY (for users who don't hold minimum after withdrawing):
+// First offence  → ×0.5
+// Second offence → ×0.25
+// Third+ offence → ×0.1
+// Penalty resets back to normal multiplier as soon as holdings ≥ 2,000 LGC
+const LGC_JETTON         = 'EQBcICgWV92L-PezljUf_6J7PnpVUlJmhp1QlctbwulKbn8j';
+const HOLD_UNIT          = 2000;   // LGC per multiplier step
+const MULTIPLIER_PER_UNIT = 2;    // ×2 per step
+const MAX_MULTIPLIER     = 20;    // cap at ×20
+const MIN_HOLD_AFTER_WD  = 2000;  // must hold this much after withdrawal to avoid penalty
+const PENALTY_STEPS      = [0.5, 0.25, 0.1]; // offence 1, 2, 3+
+
+// Compute the holder multiplier from on-chain balance (no penalty applied here)
+function calcHolderMultiplier(held) {
+    if (held < HOLD_UNIT) return 1.0;
+    const steps = Math.floor(held / HOLD_UNIT);
+    return Math.min(MAX_MULTIPLIER, steps * MULTIPLIER_PER_UNIT);
+}
+
+// Compute effective multiplier — applies penalty if active, else holder rate
+function calcEffectiveMultiplier(held, penaltyCount) {
+    if (penaltyCount > 0 && held < MIN_HOLD_AFTER_WD) {
+        const idx = Math.min(penaltyCount - 1, PENALTY_STEPS.length - 1);
+        return PENALTY_STEPS[idx];
+    }
+    return calcHolderMultiplier(held);
+}
 
 // ── Storage: true hybrid — localStorage on web, CloudStorage on TG,
 //    with automatic migration so progress is never lost when switching. ────────
@@ -214,7 +374,7 @@ function loadState() {
     });
 }
 
-let bal=0,maxE=1000,tap=10,en=1000,cl=[],lvls={mt:1,en:1},withdrawals=[],walletAddress=null,friendlyAddress=null,tonUI=null,lastEnergyWarnTime=0,saveTimeout=null,refCount=0,refEarned=0;
+let bal=0,maxE=1000,tap=10,en=1000,cl=[],lvls={mt:1,en:1},withdrawals=[],walletAddress=null,friendlyAddress=null,tonUI=null,lastEnergyWarnTime=0,saveTimeout=null,refCount=0,refEarned=0,heldLGC=0,tierMultiplier=1.0,penaltyCount=0;
 // Guard: prevents sv() from saving before loadState+applyState have completed
 let _stateReady = false;
 
@@ -226,6 +386,7 @@ function applyState(s){
     friendlyAddress=s.friendlyAddress??walletAddress;
     withdrawals=s.withdrawals??[];
     refCount=s.refCount??0;refEarned=s.refEarned??0;
+    heldLGC=s.heldLGC??0;tierMultiplier=s.tierMultiplier??1.0;penaltyCount=s.penaltyCount??0;
     en=s.en??1000;
     if(s.lastSaved){const sec=Math.floor((Date.now()-s.lastSaved)/1000);en=Math.min(maxE,en+sec*REGEN_PER_SEC);}
     // Sync ref_used into localStorage so the referral guard works cross-storage
@@ -239,6 +400,101 @@ function _pickupAdminActions(){
 }
 function rawToFriendly(r){
     try{const p=r.includes(':')?r.split(':'):['0',r],wc=parseInt(p[0]),h=p[1];if(h.length!==64)return r;const a=new Uint8Array(32);for(let i=0;i<32;i++)a[i]=parseInt(h.substr(i*2,2),16);const pk=new Uint8Array(36);pk[0]=0x51;pk[1]=wc&0xFF;pk.set(a,2);let crc=0;for(let i=0;i<34;i++){crc^=pk[i]<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);}crc&=0xFFFF;pk[34]=(crc>>8)&0xFF;pk[35]=crc&0xFF;return btoa(String.fromCharCode(...pk)).replace(/\+/g,'-').replace(/\//g,'_');}catch{return r;}
+}
+
+// Fetch LGC balance held in the connected wallet via TonCenter API
+async function fetchWalletHoldings(addr) {
+    if (!addr) return;
+    try {
+        const url = `https://toncenter.com/api/v3/jetton/wallets?owner_address=${encodeURIComponent(addr)}&jetton_address=${encodeURIComponent(LGC_JETTON)}&limit=1`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const jw = data?.jetton_wallets?.[0];
+        // LGC has 9 decimals
+        heldLGC = jw ? Number(BigInt(jw.balance || '0') / BigInt(1_000_000_000)) : 0;
+
+        // If user now holds ≥ MIN_HOLD_AFTER_WD, clear their penalty
+        if (penaltyCount > 0 && heldLGC >= MIN_HOLD_AFTER_WD) {
+            penaltyCount = 0;
+            setTimeout(()=>{ showToast('✅ Penalty cleared! Multiplier restored.'); hapticNotify('success'); }, 500);
+        }
+        applyTier();
+        sv();
+    } catch(e) {
+        console.warn('fetchWalletHoldings failed:', e.message);
+        // Keep last known heldLGC — don't penalise on network failure
+    }
+}
+
+// ── Tier display helpers ──────────────────────────────────────────────────────
+function getTierLabel(mult) {
+    if (mult <= 0.1)  return { name: '🔴 Restricted Miner',  color: '#ff4444' };
+    if (mult <= 0.25) return { name: '🟠 Penalised Miner',   color: '#ff8800' };
+    if (mult <= 0.5)  return { name: '🟡 Warning Miner',     color: '#ffcc00' };
+    if (mult < 2)     return { name: '⛏️ Basic Miner',       color: '#888888' };
+    if (mult < 4)     return { name: '🥉 Bronze Miner',      color: '#cd7f32' };
+    if (mult < 6)     return { name: '🥈 Silver Miner',      color: '#aaaaaa' };
+    if (mult < 10)    return { name: '🥇 Gold Miner',        color: '#FFD700' };
+    if (mult < 16)    return { name: '💎 Diamond Miner',     color: '#00d4ff' };
+    return              { name: '👑 Whale Miner',             color: '#ff6fff' };
+}
+
+function applyTier() {
+    tierMultiplier = calcEffectiveMultiplier(heldLGC, penaltyCount);
+    const label    = getTierLabel(tierMultiplier);
+    const isPenalised = penaltyCount > 0 && heldLGC < MIN_HOLD_AFTER_WD;
+    const nextThreshold = (Math.floor(heldLGC / HOLD_UNIT) + 1) * HOLD_UNIT;
+
+    // Update wallet tab tier card
+    const tc = $('tier-card');
+    if (tc) {
+        tc.classList.remove('hidden');
+        const tn = $('tier-name');
+        if (tn) { tn.textContent = label.name; tn.style.color = label.color; }
+        const th = $('tier-held');
+        if (th) th.textContent = heldLGC.toLocaleString() + ' LGC held';
+
+        const tp  = $('tier-prog');
+        const tnx = $('tier-next');
+        if (isPenalised) {
+            if (tp) { tp.style.width = '100%'; tp.style.background = '#ff4444'; }
+            if (tnx) tnx.textContent = `⚠️ Hold ${MIN_HOLD_AFTER_WD.toLocaleString()} LGC to restore multiplier`;
+        } else if (heldLGC < HOLD_UNIT) {
+            if (tp) { tp.style.width = `${(heldLGC/HOLD_UNIT)*100}%`; tp.style.background=''; }
+            if (tnx) tnx.textContent = `Hold ${HOLD_UNIT.toLocaleString()} LGC for ×${MULTIPLIER_PER_UNIT} bonus`;
+        } else {
+            const pct = Math.min(100, ((heldLGC % HOLD_UNIT) / HOLD_UNIT) * 100);
+            if (tp) { tp.style.width = `${pct}%`; tp.style.background=''; }
+            if (tnx) {
+                const next = nextThreshold;
+                const nextMult = Math.min(MAX_MULTIPLIER, calcHolderMultiplier(next));
+                tnx.textContent = tierMultiplier >= MAX_MULTIPLIER
+                    ? '👑 Maximum multiplier reached!'
+                    : `${(next - heldLGC).toLocaleString()} LGC to ×${nextMult}`;
+            }
+        }
+    }
+
+    // Update miner tab label
+    const tbl = $('tier-bonus-label');
+    if (tbl) {
+        if (isPenalised) {
+            tbl.textContent = `${label.name} · ×${tierMultiplier} (hold ${MIN_HOLD_AFTER_WD.toLocaleString()} LGC to recover)`;
+            tbl.style.color = '#ff6644';
+            tbl.classList.remove('hidden');
+        } else if (tierMultiplier > 1.0) {
+            tbl.textContent = `${label.name} · ×${tierMultiplier} multiplier`;
+            tbl.style.color = label.color;
+            tbl.classList.remove('hidden');
+        } else {
+            tbl.textContent = `Hold ${HOLD_UNIT.toLocaleString()} LGC for ×${MULTIPLIER_PER_UNIT} bonus`;
+            tbl.style.color = 'rgba(255,215,0,0.4)';
+            tbl.classList.remove('hidden');
+        }
+    }
+
+    upd();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -444,13 +700,20 @@ window.onload=async()=>{
         if (!('ontouchstart' in window)) handleTap(e);
     });
 
-    upd();renderTasks();renderHistory();
+    upd();renderTasks();renderHistory();renderLeaderboard();
 };
 
 function setWalletUI(a){
-    const b=$('wallet-btn');b.textContent=a.slice(0,6)+'…'+a.slice(-4);b.classList.add('connected');
-    $('wallet-warning').classList.add('hidden');$('ref-l').innerText=`${BOT_URL}?start=${a}`;
-    $('no-wallet-msg').classList.add('hidden');$('ref-card').classList.remove('hidden');
+    const b=$('wallet-btn');if(b){b.textContent=a.slice(0,6)+'…'+a.slice(-4);b.classList.add('connected');}
+    const ww=$('wallet-warning');if(ww)ww.classList.add('hidden');
+    const rl=$('ref-l');if(rl)rl.innerText=`${BOT_URL}?start=${a}`;
+    const nw=$('no-wallet-msg');if(nw)nw.classList.add('hidden');
+    const rc=$('ref-card');if(rc)rc.classList.remove('hidden');
+    const tc=$('tier-card');if(tc)tc.classList.remove('hidden');
+    // Fetch on-chain holdings to determine tier — don't await, runs in background
+    fetchWalletHoldings(a);
+    // Re-apply saved tier immediately while fetch runs
+    if(heldLGC>0) applyTier();
 }
 function clearWalletUI(){
     const b=$('wallet-btn');b.textContent='Connect Wallet';b.classList.remove('connected');
@@ -467,9 +730,20 @@ function upd(){
     const balEl=$('bal'); if(!balEl) return; // DOM not ready yet
     balEl.innerText=fmt(bal);
     const bwEl=$('wallet-bal');   if(bwEl) bwEl.innerText=fmt(bal)+' LGC';
-    const etEl=$('eng-t');        if(etEl) etEl.innerHTML=`<i class="fa-solid fa-bolt text-[#FFD700]"></i> ${Math.floor(en)} / ${maxE}`;
+    const etEl=$('eng-t');
+    if(etEl){
+        const regenRate=(REGEN_PER_SEC*Math.min(3,tierMultiplier)).toFixed(1).replace(/\.0$/,'');
+        etEl.innerHTML=`<i class="fa-solid fa-bolt text-[#FFD700]"></i> ${Math.floor(en)} / ${maxE} <span style="color:rgba(255,215,0,0.45);font-size:10px">+${regenRate}/s</span>`;
+    }
     const ebEl=$('eng-b');        if(ebEl) ebEl.style.width=`${Math.max(0,(en/maxE)*100)}%`;
-    const tvEl=$('tap-v');        if(tvEl) tvEl.innerText=`+${tap} per tap`;
+    const tvEl=$('tap-v');
+    if(tvEl){
+        const eff=Math.floor(tap*tierMultiplier);
+        const isPenalised = penaltyCount>0 && heldLGC<MIN_HOLD_AFTER_WD;
+        if(isPenalised) tvEl.innerHTML=`<span style="color:#ff6644">+${eff}/tap ×${tierMultiplier} ⚠️</span>`;
+        else if(tierMultiplier>1) tvEl.innerText=`+${eff}/tap (×${tierMultiplier})`;
+        else tvEl.innerText=`+${tap} per tap`;
+    }
     const cmtEl=$('c-mt');        if(cmtEl) cmtEl.innerText=fmt(lvls.mt*2000)+' LGC';
     const cenEl=$('c-en');        if(cenEl) cenEl.innerText=fmt(lvls.en*5000)+' LGC';
     const lmtEl=$('l-mt');        if(lmtEl) lmtEl.innerText=lvls.mt;
@@ -498,7 +772,7 @@ function renderHistory(){
     e.classList.add('hidden');
     l.innerHTML=withdrawals.map(w=>{const d=new Date(w.ts),ds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),ts=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),sh=w.addr?w.addr.slice(0,6)+'…'+w.addr.slice(-4):'Unknown',ok=w.status==='Completed';return`<div class="glass p-3 rounded-xl"><div class="flex justify-between items-start"><div><p class="font-black text-[#FFD700] text-xs">${fmt(w.amt)} LGC</p><p class="text-[9px] text-white/40 mt-0.5">${sh}</p>${w.tx?`<p class="text-[8px] text-green-400 mt-0.5 break-all">TX: ${w.tx.slice(0,20)}…</p>`:''}</div><div class="text-right ml-2 shrink-0"><span class="text-[8px] font-bold px-2 py-0.5 rounded-md ${ok?'bg-green-500/20 text-green-400':'bg-yellow-500/20 text-yellow-400'}">${w.status}</span><p class="text-[8px] text-white/25 mt-1">${ds} ${ts}</p></div></div></div>`;}).join('');
 }
-function sv(){ if(!_stateReady) return; saveState({bal,en,maxE,tap,cl,lvls,walletAddress,friendlyAddress,withdrawals,refCount,refEarned}); }
+function sv(){ if(!_stateReady) return; saveState({bal,en,maxE,tap,cl,lvls,walletAddress,friendlyAddress,withdrawals,refCount,refEarned,heldLGC,tierMultiplier,penaltyCount}); }
 function svDebounced(){ if(!_stateReady) return; clearTimeout(saveTimeout); saveTimeout=setTimeout(sv,800); }
 
 // Write withdrawal to a shared admin log that confirm.html can read
@@ -528,12 +802,73 @@ function updateAdminLog(id, tx) {
 
 window.doTask=(id,url,reward)=>{hapticSelect();window.open(url,'_blank');setTimeout(()=>{if(cl.includes(id))return;bal+=reward;cl.push(id);upd();sv();renderTasks();hapticNotify('success');showToast(`+${fmt(reward)} LGC earned! ✅`);},6e3);};
 window.buy=t=>{const c={mt:[lvls.mt*2000,()=>{lvls.mt++;tap+=2;}],en:[lvls.en*5000,()=>{lvls.en++;maxE+=500;}]},[cost,apply]=c[t];if(bal<cost){hapticNotify('error');showToast(`Need ${fmt(cost)} LGC`);return;}bal-=cost;apply();hapticNotify('success');showToast(t==='mt'?`Multitap → Level ${lvls.mt} ⚡`:`Energy Cap → Level ${lvls.en} 🔋`);upd();sv();};
-window.payout=async()=>{if(!tonUI){showToast('Wallet loading…');return;}if(!walletAddress){$('wallet-warning').classList.remove('hidden');hapticNotify('warning');return;}const a=parseInt($('w-amt').value);if(isNaN(a)||a<15000){hapticNotify('error');showToast('Minimum withdrawal: 15,000 LGC');return;}if(a>bal){hapticNotify('error');showToast('Insufficient balance');return;}try{await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+300,messages:[{address:RECV_ADDR,amount:'100000000'}]});const id=Date.now();const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`💸 WITHDRAWAL REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(a)} LGC\nTime: ${ts}\nID: ${id}`)}`).catch(()=>{});withdrawals.unshift({id,amt:a,addr:friendlyAddress,ts:id,status:'Pending'});logWithdrawalForAdmin(friendlyAddress,a,id);bal-=a;$('w-amt').value='';upd();sv();renderHistory();hapticNotify('success');showToast('Withdrawal requested! ✅');}catch(e){hapticNotify('error');showToast('Transaction cancelled or failed');}};
+window.payout=async()=>{
+    if(!tonUI){showToast('Wallet loading…');return;}
+    if(!walletAddress){const ww=$('wallet-warning');if(ww)ww.classList.remove('hidden');hapticNotify('warning');return;}
+    const a=parseInt($('w-amt').value);
+    if(isNaN(a)||a<MIN_WITHDRAW){hapticNotify('error');showToast(`Minimum withdrawal: ${MIN_WITHDRAW.toLocaleString()} LGC`);return;}
+    if(a>bal){hapticNotify('error');showToast('Insufficient balance');return;}
+    const fee=calcWithdrawalFee(a);
+    const feeNano=calcWithdrawalFeeNano(a);
+
+    // Warn user if they'll fall below minimum hold threshold after this withdrawal
+    const projectedHeld = heldLGC; // on-chain held (doesn't change when they withdraw mined LGC)
+    if(projectedHeld < MIN_HOLD_AFTER_WD && cl.includes('ref_used')) {
+        // User has withdrawn before — this is not their first withdrawal
+        const newPenalty = penaltyCount + 1;
+        const newMult = PENALTY_STEPS[Math.min(newPenalty-1, PENALTY_STEPS.length-1)];
+        const proceed = await new Promise(r=>{
+            const msg = `⚠️ You hold ${projectedHeld.toLocaleString()} LGC on-chain (minimum: ${MIN_HOLD_AFTER_WD.toLocaleString()}).\n\nWithdrawing will reduce your mining rate to ×${newMult}.\n\nHold ${MIN_HOLD_AFTER_WD.toLocaleString()}+ LGC to maintain your multiplier.\n\nProceed anyway?`;
+            if(tgApp?.showConfirm) tgApp.showConfirm(msg,r); else r(confirm(msg));
+        });
+        if(!proceed){upd();return;}
+    }
+
+    try{
+        await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+300,messages:[{address:RECV_ADDR,amount:String(feeNano)}]});
+        const id=Date.now();
+        const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+
+        // Apply penalty if user doesn't hold minimum on-chain
+        let penaltyApplied = false;
+        if(heldLGC < MIN_HOLD_AFTER_WD) {
+            penaltyCount++;
+            penaltyApplied = true;
+            applyTier();
+        }
+
+        fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(
+            `💸 WITHDRAWAL REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(a)} LGC\nFee Paid: ${fee} TON\nHeld: ${heldLGC.toLocaleString()} LGC\nMultiplier: ×${tierMultiplier}${penaltyApplied?' ⚠️ PENALTY':''}'\nTime: ${ts}\nID: ${id}`
+        )}`).catch(()=>{});
+
+        withdrawals.unshift({id,amt:a,addr:friendlyAddress,ts:id,status:'Pending'});
+        logWithdrawalForAdmin(friendlyAddress,a,id);
+        bal-=a;$('w-amt').value='';upd();sv();renderHistory();
+        hapticNotify('success');
+
+        if(penaltyApplied){
+            const mult = tierMultiplier;
+            showToast(`Withdrawn ✅ — Mining rate: ×${mult} ⚠️`);
+        } else {
+            showToast('Withdrawal requested! ✅');
+        }
+
+        // Re-fetch holdings after a short delay to confirm on-chain state
+        setTimeout(()=>fetchWalletHoldings(friendlyAddress||walletAddress), 30000);
+    }catch(e){hapticNotify('error');showToast('Transaction cancelled or failed');}
+};
 window.syncState=async()=>{hapticSelect();showToast('Syncing…');const s=await loadState();if(s){applyState(s);upd();renderTasks();renderHistory();showToast('Synced ✅');hapticNotify('success');}else showToast('Nothing to sync');};
 window.claimLGC=async()=>{if(!tonUI){showToast('Wallet loading…');return;}if(!walletAddress){hapticNotify('warning');showToast('Connect your TON wallet first');try{tonUI.openModal();}catch{}return;}if(bal<MIN_CLAIM){showToast(`Need ${fmt(MIN_CLAIM)} LGC to claim`);return;}const cb=$('claim-btn');if(cb){cb.disabled=true;cb.textContent='Processing…';}try{const ok=await new Promise(r=>{if(tgApp?.showConfirm)tgApp.showConfirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`,r);else r(confirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`));});if(!ok){upd();return;}await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+300,messages:[{address:RECV_ADDR,amount:'100000000'}]});const id=Date.now();const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`💎 CLAIM REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(bal)} LGC\nTime: ${ts}\nID: ${id}`)}`).catch(()=>{});withdrawals.unshift({id,amt:bal,addr:friendlyAddress,ts:id,status:'Pending'});logWithdrawalForAdmin(friendlyAddress,bal,id);bal=0;upd();sv();renderHistory();hapticNotify('success');showToast('✅ Claim sent! Processing');switchTab('wallet');}catch(e){hapticNotify('error');const m=e?.message?.toLowerCase()||'';showToast(m.includes('reject')||m.includes('cancel')?'Transaction rejected':'Claim failed');upd();}};
 window.inviteFriends=()=>{const a=friendlyAddress||walletAddress||'user',link=`${BOT_URL}?start=${a}`,t=encodeURIComponent('🚀 Mine $LGC with me! 🎁 Get 2,000 bonus:');window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${t}`,'_blank');hapticSelect();};
 
-function handleTap(touch){if(en<tap){const n=Date.now();if(n-lastEnergyWarnTime>3000){lastEnergyWarnTime=n;hapticNotify('warning');showToast('Out of energy! Recharging… ⚡');}return;}bal+=tap;en-=tap;const f=document.createElement('div');f.className='tap-float';f.innerText=`+${tap}`;f.style.cssText=`left:${touch.clientX-16}px;top:${touch.clientY-20}px`;document.body.appendChild(f);setTimeout(()=>f.remove(),750);haptic('light');upd();svDebounced();}
+function handleTap(touch){
+    const effectiveTap = Math.floor(tap * tierMultiplier);
+    if(en<effectiveTap){const n=Date.now();if(n-lastEnergyWarnTime>3000){lastEnergyWarnTime=n;hapticNotify('warning');showToast('Out of energy! Recharging… ⚡');}return;}
+    bal+=effectiveTap;en-=effectiveTap;
+    const f=document.createElement('div');f.className='tap-float';f.innerText=`+${effectiveTap}`;f.style.cssText=`left:${touch.clientX-16}px;top:${touch.clientY-20}px`;
+    document.body.appendChild(f);setTimeout(()=>f.remove(),750);
+    haptic('light');upd();svDebounced();
+}
 
 window.openLiqModal=()=>{if(cl.includes('liq')){showToast('Already completed ✅');return;}if(cl.includes('liq_pending')){showToast('Awaiting review ⏳');return;}hapticSelect();$('liq-modal').classList.add('open');};
 window.closeLiqModal=()=>{$('liq-modal').classList.remove('open');$('liq-proof').value='';$('liq-note').value='';};
@@ -549,9 +884,18 @@ window.clearHistory=()=>{
     });
 };
 
-setInterval(()=>{if(en<maxE){en=Math.min(maxE,en+REGEN_PER_SEC);upd();}},1e3);
+setInterval(()=>{
+    if(en<maxE){
+        // Holders regen energy faster proportional to their multiplier (capped at 3× regen)
+        const regenRate = REGEN_PER_SEC * Math.min(3, tierMultiplier);
+        en=Math.min(maxE,en+regenRate);
+        upd();
+    }
+},1e3);
 // Periodic save — only fires once state is ready (guarded inside sv())
 setInterval(sv,5e3);
+// Refresh wallet holdings / tier every 5 minutes while app is open
+setInterval(()=>{ if(walletAddress||friendlyAddress) fetchWalletHoldings(friendlyAddress||walletAddress); }, 5*60*1e3);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){sv();return;}if(!tgCloud)return;tgCloud.getItem('withdrawals',(e,v)=>{if(e||!v)return;try{const r=JSON.parse(v),nc=r.filter(w=>w.status==='Completed'&&withdrawals.some(x=>x.id===w.id&&x.status==='Pending'));if(!nc.length)return;withdrawals=withdrawals.map(w=>{const m=nc.find(x=>x.id===w.id);return m||w;});renderHistory();sv();hapticNotify('success');showToast(`${nc.length} withdrawal${nc.length>1?'s':''} completed ✅`);}catch{}});});
 window.addEventListener('pagehide',sv);
 
@@ -560,6 +904,100 @@ window.copyR=()=>{const l=$('ref-l').innerText;if(l.includes('http')){copyToClip
 function copyToClipboard(text){if(!text)return;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>showToast('Copied! 📋')).catch(()=>fallbackCopy(text));else fallbackCopy(text);}
 function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;top:-999px;opacity:0';document.body.appendChild(el);el.focus();el.select();try{document.execCommand('copy');showToast('Copied! 📋');}catch{showToast('Long-press to copy');}document.body.removeChild(el);}
 function showToast(msg){const t=$('toast');t.innerText=msg;t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2800);}
+
+// ── Fee preview ───────────────────────────────────────────────────────────────
+window.updateFeePreview=()=>{
+    const a=parseInt($('w-amt')?.value)||0;
+    const fp=$('fee-preview');const fa=$('fee-amt');const wb=$('withdraw-btn');
+    if(!fp||!fa) return;
+    if(a>=MIN_WITHDRAW){
+        const fee=calcWithdrawalFee(a);
+        fa.textContent=`${fee} TON`;
+        fp.classList.remove('hidden');
+        if(wb) wb.textContent=`Pay ${fee} TON & Withdraw`;
+    } else {
+        fp.classList.add('hidden');
+        if(wb) wb.textContent='Withdraw LGC';
+    }
+};
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+const LB_KEY = 'lgc_leaderboard_snapshot';
+const LB_EXCLUDED = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
+const WEEKLY_EQUAL = 150000;
+const WEEKLY_PROP  = 300000;
+const TOP_N        = 15;
+const EQUAL_EACH   = WEEKLY_EQUAL / TOP_N; // 10,000 LGC per holder
+
+function renderLeaderboard(){
+    const myAddr = friendlyAddress || walletAddress;
+    // Update your holdings card
+    const lbHeld = $('lb-held');
+    const lbRank = $('lb-rank-label');
+    const lbNoW  = $('lb-no-wallet');
+    if(lbHeld) lbHeld.textContent = myAddr ? heldLGC.toLocaleString()+' LGC' : '—';
+    if(lbNoW)  lbNoW.classList.toggle('hidden', !!myAddr);
+    if(lbRank && myAddr){
+        const snap = getLBSnapshot();
+        const myEntry = snap.find(e=>e.addr===myAddr);
+        const rank = myEntry ? snap.indexOf(myEntry)+1 : null;
+        if(rank && rank<=TOP_N) lbRank.textContent = `#${rank} · Qualified ✅`;
+        else if(rank) lbRank.textContent = `#${rank} · Not in Top ${TOP_N}`;
+        else lbRank.textContent = 'Not in snapshot yet';
+    }
+
+    // Render list
+    const list = $('lb-list');
+    if(!list) return;
+    const snap = getLBSnapshot();
+    if(!snap.length){
+        list.innerHTML=`<div class="glass p-6 rounded-2xl text-center text-white/30 text-xs"><i class="fa-solid fa-hourglass-half text-2xl mb-2 block opacity-40"></i>Leaderboard snapshot loading…<br><span class="text-[10px] mt-1 block">Results appear after the first weekly snapshot</span></div>`;
+        return;
+    }
+    const totalTop15 = snap.slice(0,TOP_N).reduce((s,e)=>s+e.held, 0);
+    list.innerHTML = snap.slice(0,TOP_N).map((e,i)=>{
+        const rank=i+1;
+        const medals=['🥇','🥈','🥉'];
+        const medal = rank<=3 ? medals[rank-1] : `#${rank}`;
+        const propShare = totalTop15>0 ? Math.floor((e.held/totalTop15)*WEEKLY_PROP) : 0;
+        const totalReward = EQUAL_EACH + propShare;
+        const isMe = myAddr && e.addr===myAddr;
+        return `<div class="glass p-3 rounded-2xl flex items-center gap-3 ${isMe?'border border-[#FFD700]/30':''}">
+            <div class="text-lg w-8 text-center shrink-0">${medal}</div>
+            <div class="flex-1 min-w-0">
+                <p class="font-black text-xs ${isMe?'text-[#FFD700]':'text-white'} truncate">${e.addr?e.addr.slice(0,6)+'…'+e.addr.slice(-4):'Unknown'}${isMe?' (You)':''}</p>
+                <p class="text-[10px] text-white/40">${e.held.toLocaleString()} LGC held</p>
+            </div>
+            <div class="text-right shrink-0">
+                <p class="text-xs font-black text-[#FFD700]">+${totalReward.toLocaleString()}</p>
+                <p class="text-[9px] text-white/30">LGC/week</p>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function getLBSnapshot(){
+    try{ return JSON.parse(localStorage.getItem(LB_KEY)||'[]').filter(e=>e.addr!==LB_EXCLUDED); }catch{ return []; }
+}
+
+window.syncLeaderboard=()=>{
+    hapticSelect();
+    if(walletAddress||friendlyAddress) fetchWalletHoldings(friendlyAddress||walletAddress);
+    renderLeaderboard();
+    showToast('Leaderboard refreshed');
+};
+
+window.calcLbEstimate=()=>{
+    const mine=parseInt($('lb-my-hold')?.value)||0;
+    const total=parseInt($('lb-total-hold')?.value)||0;
+    const est=$('lb-estimate');const propEl=$('lb-prop-est');
+    if(!est||!propEl) return;
+    if(mine>0&&total>0&&mine<=total){
+        const prop=Math.floor((mine/total)*WEEKLY_PROP);
+        propEl.textContent=prop.toLocaleString()+' LGC';
+        est.classList.remove('hidden');
+    } else { est.classList.add('hidden'); }
+};
 </script>
 </body>
 </html>
