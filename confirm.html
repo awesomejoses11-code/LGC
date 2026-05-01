@@ -85,23 +85,39 @@
 
         <!-- Referral Commissions -->
         <div class="glass p-5 space-y-3">
-            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">👥 Credit Referral Commission</p>
-            <p class="text-xs text-white/40">When you get a "NEW REFERRAL" Telegram notification, paste the referrer's wallet below and tap Credit — they get 10% of the 2,000 LGC bonus (= 200 LGC) on next open.</p>
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">👥 Referral Commissions — AUTO</p>
+            <div style="background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2);border-radius:12px;padding:12px">
+                <p class="text-xs font-bold" style="color:#4ade80">✅ Fully Automatic</p>
+                <p class="text-xs text-white/50 mt-1 leading-relaxed">Referral commissions are now credited automatically. When a new user joins via a referral link, their app instantly writes a pickup key for the referrer — and the referrer gets credited the next time they open the app, with no manual step needed.</p>
+            </div>
+            <p class="text-xs text-white/40">Use the manual override below only if a referral was missed:</p>
             <input type="text" id="ref-wallet" placeholder="UQ... referrer wallet address">
             <input type="number" id="ref-count-in" placeholder="Number of new referrals to credit" min="1" value="1">
-            <button class="btn btn-gold" onclick="creditReferral()">💰 CREDIT COMMISSION</button>
+            <button class="btn btn-gold" onclick="creditReferral()">💰 MANUAL CREDIT (Override)</button>
         </div>
 
         <!-- How to use -->
         <div class="glass p-5 space-y-2">
             <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">How To Use</p>
             <p class="text-xs text-white/50 leading-relaxed">
-                1. User requests withdrawal → you receive Telegram notification with wallet + amount<br>
-                2. Send TON manually from your wallet → copy the TX hash from TONScan<br>
+                1. User requests withdrawal → you receive Telegram notification with wallet + amount + fee paid<br>
+                2. Send LGC manually from your wallet → copy the TX hash from TONScan<br>
                 3. Paste wallet + TX hash above → tap Confirm<br>
                 4. User's withdrawal history updates to <span class="text-green-400 font-bold">Completed</span> on next app open<br><br>
-                <span class="text-[#FFD700] font-bold">Referrals:</span> When you get a "NEW REFERRAL" notification, use the Referral Commission panel to credit the referrer. They get 200 LGC (10% of the 2,000 new user bonus) on their next app open.
+                <span class="text-[#FFD700] font-bold">Fee System:</span> 1,000–5,000 LGC → 0.10 TON. Each extra 1k above 5,000 → +0.02 TON.<br><br>
+                <span class="text-[#FFD700] font-bold">Referrals:</span> Now fully automatic — no action needed. Commissions are credited automatically when the referrer next opens the app. The Manual Override panel is only for edge cases.<br><br>
+                <span class="text-[#FFD700] font-bold">Buy LGC Task:</span> Users get +5,000 LGC for buying 15k LGC on DeDust. Verified on-chain via TonScan API. Refreshes every 24 hours.
             </p>
+        </div>
+
+        <!-- Weekly Leaderboard Snapshot -->
+        <div class="glass p-5 space-y-3">
+            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">🏆 Weekly Leaderboard Snapshot</p>
+            <p class="text-xs text-white/40">Enter Top 15 holders here (from on-chain data). Users see this in the Leaderboard tab. Add one wallet per line in format: <span class="text-[#FFD700]">UQ...wallet,amount</span> (e.g. UQAbc...xyz,50000)</p>
+            <textarea id="lb-input" style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);color:white;width:100%;padding:14px 16px;border-radius:14px;outline:none;font-family:inherit;font-size:12px;height:180px;resize:vertical" placeholder="UQAbc...wallet1,100000&#10;UQDef...wallet2,85000&#10;..."></textarea>
+            <button class="btn btn-gold" onclick="saveLeaderboard()">📸 PUBLISH SNAPSHOT</button>
+            <button class="btn btn-outline" onclick="loadLBIntoTextarea()" style="margin-top:4px">📋 Load Current Snapshot</button>
+            <div id="lb-preview" class="space-y-2 mt-2"></div>
         </div>
     </div>
 
@@ -282,6 +298,50 @@ function rejectLiq() {
     localStorage.setItem(`lgc_liq_approved_${addr}`, JSON.stringify({ approved: false, ts: Date.now() }));
     toast('❌ Rejected — user notified on next open');
     document.getElementById('liq-wallet').value = '';
+}
+
+const LB_KEY = 'lgc_leaderboard_snapshot';
+const EXCLUDED_ADDR = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
+
+function saveLeaderboard() {
+    const raw = document.getElementById('lb-input').value.trim();
+    if (!raw) { toast('Enter at least one entry'); return; }
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    const entries = [];
+    for (const line of lines) {
+        const [addr, heldStr] = line.split(',');
+        const held = parseInt((heldStr||'').trim());
+        if (!addr || isNaN(held)) { toast(`Invalid line: ${line}`); return; }
+        if (addr.trim() === EXCLUDED_ADDR) continue; // skip admin address
+        entries.push({ addr: addr.trim(), held });
+    }
+    entries.sort((a,b) => b.held - a.held);
+    const top15 = entries.slice(0, 15);
+    localStorage.setItem(LB_KEY, JSON.stringify(top15));
+    toast(`✅ Snapshot published — ${top15.length} holders`);
+    renderLBPreview(top15);
+}
+
+function loadLBIntoTextarea() {
+    try {
+        const snap = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
+        document.getElementById('lb-input').value = snap.map(e => `${e.addr},${e.held}`).join('\n');
+        renderLBPreview(snap);
+        toast('Loaded current snapshot');
+    } catch { toast('No snapshot found'); }
+}
+
+function renderLBPreview(snap) {
+    const el = document.getElementById('lb-preview');
+    if (!snap.length) { el.innerHTML = ''; return; }
+    const total = snap.reduce((s,e)=>s+e.held,0);
+    el.innerHTML = snap.map((e,i) => {
+        const prop = total>0 ? Math.floor((e.held/total)*300000) : 0;
+        return `<div class="glass p-3" style="border-radius:12px;font-size:11px;display:flex;justify-content:space-between;align-items:center">
+            <span style="color:rgba(255,255,255,0.6)">#${i+1} ${e.addr.slice(0,8)}…${e.addr.slice(-4)}</span>
+            <span style="color:#FFD700;font-weight:800">${e.held.toLocaleString()} LGC → +${(10000+prop).toLocaleString()} reward</span>
+        </div>`;
+    }).join('');
 }
 
 const empty = () => `<p class="text-white/30 text-sm text-center py-4">No withdrawals found</p>`;
