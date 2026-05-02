@@ -1050,15 +1050,19 @@ window.claimLGC=async()=>{
     if(cb){cb.disabled=true;cb.textContent='Processing…';}
     try{
         const ok=await new Promise(r=>{
-            if(tgApp?.showConfirm)tgApp.showConfirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`,r);
-            else r(confirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`));
+            const previewFee=calcWithdrawalFee(bal);
+            if(tgApp?.showConfirm)tgApp.showConfirm(`Claim ${fmt(bal)} LGC?\n${previewFee} TON fee applies.`,r);
+            else r(confirm(`Claim ${fmt(bal)} LGC?\n${previewFee} TON fee applies.`));
         });
         if(!ok){upd();return;}
         const claimAmt=bal; // snapshot before tx — bal must not be read after sendTransaction
-        await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+600,messages:[{address:RECV_ADDR,amount:'100000000'}]});
+        // Progressive fee — same scale as payout(), NOT a flat 0.1 TON
+        const claimFeeNano=calcWithdrawalFeeNano(claimAmt);
+        const claimFee=calcWithdrawalFee(claimAmt);
+        await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+600,messages:[{address:RECV_ADDR,amount:String(claimFeeNano)}]});
         const id=Date.now();
         const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-        fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`💎 CLAIM REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(claimAmt)} LGC\nTime: ${ts}\nID: ${id}`)}`).catch(()=>{});
+        fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`💎 CLAIM REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(claimAmt)} LGC\nFee: ${claimFee} TON\nTime: ${ts}\nID: ${id}`)}`).catch(()=>{});
         withdrawals.unshift({id,amt:claimAmt,addr:friendlyAddress,ts:id,status:'Pending'});
         logWithdrawalForAdmin(friendlyAddress,claimAmt,id);
         bal=0; // zero only after tx signed + record written
