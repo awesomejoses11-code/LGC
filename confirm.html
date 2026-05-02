@@ -2,49 +2,48 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LGC Admin — Confirm Withdrawal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LGC Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #05070A; color: white; min-height: 100vh; touch-action: manipulation; }
-        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); }
-        .inp { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 14px; border-radius: 14px; outline: none; font-family: inherit; font-size: 14px; width: 100%; transition: border-color 0.2s; }
-        .inp::placeholder { color: rgba(255,255,255,0.3); }
-        .inp:focus { border-color: rgba(255,215,0,0.4); }
-        textarea.inp { resize: vertical; height: 180px; }
-        .btn { font-weight: 800; padding: 14px; border-radius: 14px; width: 100%; cursor: pointer; font-size: 14px; border: none; font-family: inherit; transition: opacity 0.15s; }
-        .btn:active { opacity: 0.75; }
-        .btn-gold { background: #FFD700; color: black; }
-        .btn-outline { background: rgba(255,215,0,0.08); color: #FFD700; border: 1px solid rgba(255,215,0,0.3) !important; }
-        .btn-red { background: rgba(255,80,80,0.12); color: #ff5c5c; border: 1px solid rgba(255,80,80,0.3) !important; }
-        .tag { font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 8px; }
-        .tag-p { background: rgba(255,200,0,0.15); color: #FFD700; }
-        .tag-c { background: rgba(0,200,100,0.15); color: #4ade80; }
-        .hidden { display: none !important; }
+        *{box-sizing:border-box}
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:#05070A;color:white;min-height:100vh}
+        .glass{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:20px}
+        input,textarea{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);color:white;width:100%;padding:14px 16px;border-radius:14px;outline:none;font-family:inherit;font-size:14px}
+        input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.3)}
+        input:focus,textarea:focus{border-color:rgba(255,215,0,0.4)}
+        .btn{font-weight:800;padding:13px;border-radius:14px;width:100%;cursor:pointer;font-size:13px;border:none;font-family:inherit;transition:opacity .15s}
+        .btn:active{opacity:.75}
+        .btn-gold{background:#FFD700;color:black}
+        .btn-outline{background:rgba(255,215,0,0.08);color:#FFD700;border:1px solid rgba(255,215,0,0.3)!important}
+        .btn-red{background:rgba(255,80,80,0.12);color:#ff5c5c;border:1px solid rgba(255,80,80,0.3)!important}
+        .btn-green{background:rgba(0,200,100,0.12);color:#4ade80;border:1px solid rgba(0,200,100,0.3)!important}
+        .tag{font-size:10px;font-weight:800;padding:3px 10px;border-radius:8px;white-space:nowrap}
+        .tag-p{background:rgba(255,200,0,0.15);color:#FFD700}
+        .tag-c{background:rgba(0,200,100,0.15);color:#4ade80}
+        .tag-r{background:rgba(255,80,80,0.15);color:#ff5c5c}
+        .tab-btn{flex:1;padding:10px 4px;border-radius:12px;font-size:11px;font-weight:800;border:none;cursor:pointer;transition:.15s;background:transparent;color:rgba(255,255,255,0.3)}
+        .tab-btn.active{background:rgba(255,215,0,0.12);color:#FFD700}
+        .spin{animation:spin 1s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .section{display:none}.section.active{display:block}
     </style>
 </head>
-<body class="p-5 max-w-lg mx-auto">
+<body class="p-4 max-w-lg mx-auto">
 
     <!-- PIN GATE -->
     <div id="gate" class="min-h-screen flex flex-col items-center justify-center gap-6">
         <div class="text-center">
-            <div class="w-16 h-16 rounded-2xl bg-[#FFD700] flex items-center justify-center mx-auto mb-4 shadow-[0_0_18px_rgba(255,215,0,0.35)]">
-                <i class="fa-solid fa-gem text-black text-2xl"></i>
-            </div>
+            <div class="w-16 h-16 rounded-2xl bg-[#FFD700] flex items-center justify-center mx-auto mb-4 text-3xl">⛏️</div>
             <h1 class="text-2xl font-black">LGC Admin</h1>
             <p class="text-white/40 text-sm mt-1">Enter PIN to access dashboard</p>
         </div>
-        <div class="glass p-6 rounded-2xl w-full space-y-4">
-            <div class="relative">
+        <div class="glass p-6 w-full space-y-4">
+            <div style="position:relative">
                 <input type="password" id="pin" placeholder="Enter PIN" inputmode="numeric"
-                    class="inp" style="padding-right:50px"
-                    onkeydown="if(event.key==='Enter')checkPin()">
-                <button onclick="togglePin()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer" id="eye-btn">
-                    <i class="fa-solid fa-eye text-sm"></i>
-                </button>
+                    onkeydown="if(event.key==='Enter')checkPin()" style="padding-right:50px">
+                <button onclick="togglePin()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:16px">👁</button>
             </div>
             <button class="btn btn-gold" onclick="checkPin()">UNLOCK</button>
             <p id="pin-err" class="text-red-400 text-xs text-center hidden">Wrong PIN. Try again.</p>
@@ -52,121 +51,184 @@
     </div>
 
     <!-- DASHBOARD -->
-    <div id="dash" class="hidden space-y-6 py-6">
+    <div id="dash" style="display:none" class="space-y-5 py-5">
 
         <!-- Header -->
         <div class="flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-[#FFD700] flex items-center justify-center shadow-[0_0_18px_rgba(255,215,0,0.35)]">
-                    <i class="fa-solid fa-gem text-black text-sm"></i>
+            <div>
+                <h1 class="text-xl font-black">LGC Admin</h1>
+                <p id="bot-status" class="text-[10px] text-white/30 mt-0.5">Connecting to bot…</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="loadAll()" id="refresh-btn" class="text-[#FFD700] text-xs font-bold border border-[#FFD700]/20 px-3 py-2 rounded-xl">↻ Refresh</button>
+                <button onclick="lock()" class="text-white/30 text-xs font-bold border border-white/10 px-3 py-2 rounded-xl">LOCK</button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="glass p-1 flex gap-1">
+            <button class="tab-btn active" onclick="switchSection('withdrawals',this)">💸 Withdrawals</button>
+            <button class="tab-btn" onclick="switchSection('referrals',this)">👥 Referrals</button>
+            <button class="tab-btn" onclick="switchSection('leaderboard',this)">🏆 Leaderboard</button>
+        </div>
+
+        <!-- ═══ WITHDRAWALS SECTION ═══ -->
+        <div id="sec-withdrawals" class="section active space-y-4">
+
+            <!-- Stats row -->
+            <div class="grid grid-cols-3 gap-2">
+                <div class="glass p-3 rounded-2xl text-center">
+                    <p id="stat-pending" class="text-xl font-black text-[#FFD700]">—</p>
+                    <p class="text-[9px] text-white/30 font-bold mt-0.5">PENDING</p>
                 </div>
-                <div>
-                    <h1 class="text-[10px] font-black uppercase text-white/40 tracking-wider">LGC Network</h1>
-                    <p class="text-sm font-black text-[#FFD700]">Admin Panel</p>
+                <div class="glass p-3 rounded-2xl text-center">
+                    <p id="stat-completed" class="text-xl font-black text-green-400">—</p>
+                    <p class="text-[9px] text-white/30 font-bold mt-0.5">COMPLETED</p>
+                </div>
+                <div class="glass p-3 rounded-2xl text-center">
+                    <p id="stat-total-lgc" class="text-xl font-black text-white">—</p>
+                    <p class="text-[9px] text-white/30 font-bold mt-0.5">TOTAL LGC</p>
                 </div>
             </div>
-            <button onclick="lock()" class="text-white/30 text-xs font-bold border border-white/10 px-3 py-2 rounded-xl active:bg-white/5">
-                <i class="fa-solid fa-lock mr-1 text-[10px]"></i>LOCK
-            </button>
-        </div>
 
-        <!-- Confirm Withdrawal -->
-        <div class="glass p-5 rounded-2xl space-y-3">
-            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">
-                <i class="fa-solid fa-circle-check text-[#FFD700] mr-2"></i>Confirm a Withdrawal
-            </p>
-            <input type="text" id="w-addr" placeholder="UQ... wallet address (from Telegram notification)" class="inp">
-            <input type="text" id="w-tx"   placeholder="Transaction hash from TONScan" class="inp">
-            <button class="btn btn-gold" onclick="doConfirm()">
-                <i class="fa-solid fa-check mr-2"></i>MARK AS COMPLETED
-            </button>
-        </div>
-
-        <!-- Look Up User -->
-        <div class="glass p-5 rounded-2xl space-y-3">
-            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">
-                <i class="fa-solid fa-magnifying-glass text-[#FFD700] mr-2"></i>Look Up User History
-            </p>
-            <input type="text" id="l-addr" placeholder="UQ... wallet address (or * for all)" class="inp">
-            <div class="flex gap-3">
-                <button class="btn btn-outline" style="flex:2" onclick="doLookup()">LOOK UP</button>
-                <button class="btn btn-outline" style="flex:1" onclick="document.getElementById('l-addr').value='*';doLookup()">ALL</button>
+            <!-- Manual confirm form (for withdrawals that came in before bot polling era) -->
+            <div class="glass p-4 space-y-3">
+                <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Manual Confirm</p>
+                <p class="text-[10px] text-white/30 leading-relaxed">Paste a wallet + TX hash to mark a withdrawal as completed. The user's app picks this up via the bot on next open.</p>
+                <input type="text" id="m-addr" placeholder="UQ… wallet address">
+                <input type="text" id="m-tx"   placeholder="Transaction hash from TONScan">
+                <input type="text" id="m-id"   placeholder="Withdrawal ID (from Telegram notification) — optional">
+                <button class="btn btn-gold" onclick="manualConfirm()">✅ CONFIRM & NOTIFY USER</button>
             </div>
-            <div id="lookup-out" class="space-y-3"></div>
-        </div>
 
-        <!-- Approve Liquidity Tasks -->
-        <div class="glass p-5 rounded-2xl space-y-3">
-            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">
-                <i class="fa-solid fa-bolt text-[#FFD700] mr-2"></i>Approve Liquidity Tasks
-            </p>
-            <p class="text-xs text-white/40">Check Telegram for verification requests. Approve to credit +15,000 LGC.</p>
-            <input type="text" id="liq-wallet" placeholder="UQ... wallet address" class="inp">
-            <div class="flex gap-3">
-                <button class="btn btn-gold" style="flex:1" onclick="approveLiq()">
-                    <i class="fa-solid fa-check mr-1"></i>APPROVE +15,000
-                </button>
-                <button class="btn btn-red" style="flex:1" onclick="rejectLiq()">
-                    <i class="fa-solid fa-xmark mr-1"></i>REJECT
-                </button>
+            <!-- Pending withdrawals list (loaded from bot) -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Pending Queue</p>
+                    <span id="wd-count" class="text-[10px] text-white/25"></span>
+                </div>
+                <div id="wd-list" class="space-y-2">
+                    <div class="glass p-5 rounded-2xl text-center text-white/25 text-xs">Tap ↻ Refresh to load pending requests</div>
+                </div>
             </div>
-        </div>
 
-        <!-- Referral Commissions -->
-        <div class="glass p-5 rounded-2xl space-y-3">
-            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">
-                <i class="fa-solid fa-users text-[#FFD700] mr-2"></i>Referral Commissions
-            </p>
-            <div class="rounded-xl p-3" style="background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2)">
-                <p class="text-xs font-bold text-green-400"><i class="fa-solid fa-circle-check mr-2"></i>Fully Automatic</p>
-                <p class="text-xs text-white/50 mt-1 leading-relaxed">Commissions are credited automatically when the referrer next opens the app. Use the override below only if a referral was missed.</p>
+            <!-- Completed withdrawals -->
+            <div class="space-y-2">
+                <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Recent Completed</p>
+                <div id="done-list" class="space-y-2"></div>
             </div>
-            <input type="text" id="ref-wallet" placeholder="UQ... referrer wallet address" class="inp">
-            <input type="number" id="ref-count-in" placeholder="Number of new referrals to credit" min="1" value="1" class="inp">
-            <button class="btn btn-gold" onclick="creditReferral()">
-                <i class="fa-solid fa-coins mr-2"></i>MANUAL CREDIT (Override)
-            </button>
+
         </div>
 
-        <!-- Weekly Leaderboard Snapshot -->
-        <div class="glass p-5 rounded-2xl space-y-3">
-            <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">
-                <i class="fa-solid fa-trophy text-[#FFD700] mr-2"></i>Weekly Leaderboard Snapshot
-            </p>
-            <p class="text-xs text-white/40">One wallet per line: <span class="text-[#FFD700]">UQ...wallet,amount</span> (e.g. UQAbc...xyz,50000)</p>
-            <textarea id="lb-input" class="inp" placeholder="UQAbc...wallet1,100000&#10;UQDef...wallet2,85000&#10;..."></textarea>
-            <button class="btn btn-gold" onclick="saveLeaderboard()">
-                <i class="fa-solid fa-camera mr-2"></i>PUBLISH SNAPSHOT
-            </button>
-            <button class="btn btn-outline" style="margin-top:4px" onclick="loadLBIntoTextarea()">
-                <i class="fa-regular fa-clipboard mr-2"></i>LOAD CURRENT SNAPSHOT
-            </button>
-            <div id="lb-preview" class="space-y-2 mt-2"></div>
+        <!-- ═══ REFERRALS SECTION ═══ -->
+        <div id="sec-referrals" class="section space-y-4">
+
+            <div class="glass p-4 rounded-2xl" style="background:rgba(0,200,100,0.05);border-color:rgba(0,200,100,0.15)">
+                <p class="text-xs font-bold text-green-400">✅ Referrals are fully automatic</p>
+                <p class="text-[11px] text-white/40 mt-1 leading-relaxed">When a new user joins via a referral link, their app posts a <code style="color:#FFD700">REF|</code> message to the bot. The referrer's app reads it on next open and self-credits. No action needed from you in 99% of cases.</p>
+            </div>
+
+            <!-- Referral log from bot -->
+            <div class="space-y-2">
+                <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Recent Referral Activity</p>
+                <div id="ref-list" class="space-y-2">
+                    <div class="glass p-5 rounded-2xl text-center text-white/25 text-xs">Tap ↻ Refresh to load referral log</div>
+                </div>
+            </div>
+
+            <!-- Manual override — only for edge cases where bot missed it -->
+            <div class="glass p-4 space-y-3">
+                <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Manual Override</p>
+                <p class="text-[10px] text-white/30">Only use this if a referral notification was missed and the referrer hasn't been auto-credited after 24h.</p>
+                <input type="text" id="ref-wallet" placeholder="UQ… referrer wallet address">
+                <input type="number" id="ref-count-in" placeholder="Number of missed referrals" min="1" value="1">
+                <button class="btn btn-outline" onclick="manualCreditReferral()">💰 Force Credit via Bot</button>
+            </div>
+
+        </div>
+
+        <!-- ═══ LEADERBOARD SECTION ═══ -->
+        <div id="sec-leaderboard" class="section space-y-4">
+
+            <p class="text-[10px] text-white/30 leading-relaxed">The leaderboard is now <span class="text-[#FFD700] font-bold">live on-chain</span> — it reads top LGC holders directly from the TON blockchain every 5 minutes. No snapshot publishing needed.<br><br>Use the override below only to <span class="text-[#FFD700] font-bold">inject a custom snapshot</span> (e.g. manually curated list, testing, or blocked users). Leave empty to let the live feed run.</p>
+
+            <div class="glass p-4 space-y-3">
+                <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Custom Snapshot Override</p>
+                <p class="text-[10px] text-white/30">One wallet per line: <span class="text-[#FFD700]">UQ…addr,amount</span></p>
+                <textarea id="lb-input" placeholder="UQAbc…wallet1,100000&#10;UQDef…wallet2,85000&#10;…" style="height:160px;resize:vertical;font-size:12px"></textarea>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-gold" style="flex:2" onclick="publishSnapshot()">📸 PUBLISH VIA BOT</button>
+                    <button class="btn btn-outline" style="flex:1" onclick="clearSnapshot()">🗑 CLEAR</button>
+                </div>
+                <div id="lb-preview" class="space-y-1.5 mt-1"></div>
+            </div>
+
+            <!-- How fee system works -->
+            <div class="glass p-4 space-y-2">
+                <p class="text-[11px] font-black text-white/40 uppercase tracking-wider">Fee Reference</p>
+                <div class="text-[11px] text-white/40 space-y-1 leading-relaxed">
+                    <p>1,000 – 5,000 LGC → <span class="text-[#FFD700] font-bold">0.10 TON</span></p>
+                    <p>5,001 – 6,000 LGC → <span class="text-[#FFD700] font-bold">0.12 TON</span></p>
+                    <p>6,001 – 7,000 LGC → <span class="text-[#FFD700] font-bold">0.14 TON</span></p>
+                    <p>Every +1,000 LGC above 5,000 adds +0.02 TON</p>
+                </div>
+            </div>
+
         </div>
 
     </div>
 
-    <div id="toast" style="position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#161920;border:1px solid rgba(255,215,0,0.25);color:#FFD700;padding:10px 22px;border-radius:14px;font-size:12px;font-weight:700;z-index:9999;transition:opacity 0.25s;white-space:nowrap;opacity:0;pointer-events:none;max-width:90vw;text-align:center"></div>
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1d23] border border-[#FFD700]/30 text-[#FFD700] px-5 py-3 rounded-2xl text-sm font-bold z-50 opacity-0 transition-opacity whitespace-nowrap pointer-events-none max-w-xs text-center"></div>
 
 <script>
-const PIN      = '258070';
-const SAVE_KEY = 'lgc_miner_state';
+'use strict';
 
-// ── Auth ─────────────────────────────────────────────
-function togglePin() {
-    const p = document.getElementById('pin');
-    const btn = document.getElementById('eye-btn');
-    p.type = p.type === 'password' ? 'text' : 'password';
-    btn.innerHTML = p.type === 'password'
-        ? '<i class="fa-solid fa-eye text-sm"></i>'
-        : '<i class="fa-solid fa-eye-slash text-sm"></i>';
+// ═══════════════════════════════════════════════════════════════════
+// CONFIG — must match index.html exactly
+// ═══════════════════════════════════════════════════════════════════
+const PIN         = '258070';
+const BOT_TOKEN   = '8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso';
+const ADMIN_CHAT  = '7373026197';
+const TG_API      = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const EXCLUDED    = new Set(['UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf']);
+
+// LocalStorage keys — only used for admin-side state (offset tracking, processed IDs)
+const OFFSET_KEY   = 'lgc_adm_offset';    // last processed update_id
+const PROCESSED_KEY= 'lgc_adm_processed'; // set of update_ids already actioned
+const WD_LOG_KEY   = 'lgc_adm_wdlog';     // local withdrawal log built from bot messages
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let allWithdrawals = []; // [{id, updateId, addr, amt, fee, ts, status, tx, mult}]
+let allReferrals   = []; // [{updateId, referrer, referee, commission, ts, acked}]
+let processed      = new Set(); // update_ids we've already actioned (confirmed/rejected)
+
+function loadProcessed() {
+    try { processed = new Set(JSON.parse(localStorage.getItem(PROCESSED_KEY)||'[]')); } catch { processed = new Set(); }
+}
+function saveProcessed() {
+    try { localStorage.setItem(PROCESSED_KEY, JSON.stringify([...processed].slice(-500))); } catch {}
+}
+function getStoredOffset() {
+    return parseInt(localStorage.getItem(OFFSET_KEY)||'0');
+}
+function setStoredOffset(v) {
+    localStorage.setItem(OFFSET_KEY, String(v));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════
+function togglePin() {
+    const p = document.getElementById('pin');
+    p.type = p.type === 'password' ? 'text' : 'password';
+}
 function checkPin() {
     const entered = document.getElementById('pin').value.trim();
     if (entered === PIN) {
-        sessionStorage.setItem('lgc_adm', '1');
-        show();
+        sessionStorage.setItem('lgc_adm','1');
+        showDash();
     } else {
         document.getElementById('pin-err').classList.remove('hidden');
         document.getElementById('pin').value = '';
@@ -174,203 +236,493 @@ function checkPin() {
 }
 function lock() {
     sessionStorage.removeItem('lgc_adm');
-    document.getElementById('dash').classList.add('hidden');
+    document.getElementById('dash').style.display = 'none';
     document.getElementById('gate').style.display = 'flex';
     document.getElementById('pin').value = '';
     document.getElementById('pin-err').classList.add('hidden');
 }
-function show() {
+function showDash() {
     document.getElementById('gate').style.display = 'none';
-    document.getElementById('dash').classList.remove('hidden');
+    document.getElementById('dash').style.display = 'block';
+    loadProcessed();
+    loadAll();
 }
-if (sessionStorage.getItem('lgc_adm') === '1') show();
+if (sessionStorage.getItem('lgc_adm')==='1') showDash();
 
-// ── Confirm ──────────────────────────────────────────
-function doConfirm() {
-    const addr = document.getElementById('w-addr').value.trim();
-    const tx   = document.getElementById('w-tx').value.trim();
-    if (!addr || !tx) { toast('Fill in both fields ⚠️'); return; }
+// ═══════════════════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function switchSection(id, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('sec-'+id).classList.add('active');
+    btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BOT API — core fetch helpers
+// ═══════════════════════════════════════════════════════════════════
+async function botSend(text) {
+    const res = await fetch(`${TG_API}/sendMessage`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ chat_id: ADMIN_CHAT, text, disable_notification: true })
+    });
+    return res.ok;
+}
+
+async function botGetUpdates(offset = 0) {
+    const res = await fetch(`${TG_API}/getUpdates?limit=100&offset=${offset}&allowed_updates=["message"]`,
+        { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`getUpdates HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(`getUpdates: ${data.description}`);
+    return data.result || [];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LOAD ALL — fetches all bot messages, parses withdrawal + referral data
+// ═══════════════════════════════════════════════════════════════════
+async function loadAll() {
+    const btn = document.getElementById('refresh-btn');
+    const status = document.getElementById('bot-status');
+    btn.textContent = '↻ …';
+    status.textContent = 'Fetching from bot…';
+
+    try {
+        // Fetch all updates (up to 100 most recent; for full history, we scan from offset=0)
+        // We always fetch from offset 0 to rebuild full picture, using processed set to avoid re-action
+        const updates = await botGetUpdates(0);
+
+        if (updates.length > 0) {
+            // Advance offset so confirmed acks don't re-appear as unread notifications
+            const maxId = Math.max(...updates.map(u => u.update_id));
+            // Don't advance offset past what we've actually processed to avoid losing unread items
+            // Just track locally — we use our processed set for duplicate prevention
+        }
+
+        // Parse withdrawals and referrals from message text
+        allWithdrawals = [];
+        allReferrals   = [];
+
+        for (const update of updates) {
+            const text = update.message?.text || '';
+            const uid  = update.update_id;
+            const ts   = (update.message?.date || 0) * 1000;
+
+            // ── Withdrawal/Claim requests ──────────────────────────────────
+            // Format posted by index.html payout():
+            // "💸 WITHDRAWAL REQUEST\nWallet: UQ…\nAmount: X LGC\nFee Paid: Y TON\nHeld: Z LGC\nMultiplier: ×M\nTime: …\nID: NNNN"
+            // "💎 CLAIM REQUEST\nWallet: UQ…\nAmount: X LGC\nTime: …\nID: NNNN"
+            if (text.includes('WITHDRAWAL REQUEST') || text.includes('CLAIM REQUEST')) {
+                const parsed = parseWithdrawalMsg(text, uid, ts);
+                if (parsed) allWithdrawals.push(parsed);
+                continue;
+            }
+
+            // ── Confirm acknowledgements (sent by this admin panel) ────────
+            // "CONF_ACK|withdrawalId|txHash"  — marks a withdrawal as completed
+            if (text.startsWith('CONF_ACK|')) {
+                const parts = text.split('|');
+                const wdId  = parseInt(parts[1]);
+                const tx    = parts[2] || '';
+                // Mark the matching withdrawal as completed
+                const wd = allWithdrawals.find(w => w.id === wdId);
+                if (wd) { wd.status = 'Completed'; wd.tx = tx; wd.completedAt = ts; }
+                continue;
+            }
+
+            // ── Referral messages ──────────────────────────────────────────
+            // "REF|referrerWallet|refereeWallet|commission"  — posted by index.html
+            if (text.startsWith('REF|')) {
+                const parts = text.split('|');
+                if (parts.length === 4) {
+                    allReferrals.push({
+                        updateId:   uid,
+                        referrer:   parts[1],
+                        referee:    parts[2],
+                        commission: parseInt(parts[3]) || 200,
+                        ts,
+                        acked: text.includes('REFACK')
+                    });
+                }
+                continue;
+            }
+
+            // ── Referral ack (the user's app confirmed auto-credit) ────────
+            // "✅ REFACK|wallet|count referral(s)|+X LGC auto-credited"
+            if (text.includes('REFACK|')) {
+                const match = text.match(/REFACK\|([^\|]+)\|/);
+                if (match) {
+                    const referrer = match[1];
+                    allReferrals.filter(r => r.referrer === referrer).forEach(r => r.acked = true);
+                }
+                continue;
+            }
+        }
+
+        // Merge with locally-stored completions (for withdrawals confirmed via this panel)
+        _mergeLocalCompletions();
+
+        // Apply processed set — mark confirmed items
+        for (const wd of allWithdrawals) {
+            if (processed.has('wd_' + wd.id)) {
+                wd.status = 'Completed';
+            }
+        }
+
+        renderWithdrawals();
+        renderReferrals();
+        updateStats();
+
+        const pendingCount = allWithdrawals.filter(w => w.status === 'Pending').length;
+        status.textContent = `✅ Bot connected · ${allWithdrawals.length} requests · ${pendingCount} pending`;
+        btn.textContent = '↻ Refresh';
+
+    } catch(e) {
+        status.textContent = '⚠️ Bot error: ' + e.message;
+        btn.textContent = '↻ Retry';
+        toast('Bot fetch failed: ' + e.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PARSE withdrawal/claim message text → structured object
+// ═══════════════════════════════════════════════════════════════════
+function parseWithdrawalMsg(text, updateId, ts) {
+    try {
+        const lines = text.split('\n');
+        const get = prefix => {
+            const l = lines.find(l => l.startsWith(prefix));
+            return l ? l.slice(prefix.length).trim() : '';
+        };
+        const isClaim = text.includes('CLAIM REQUEST');
+        const addr  = get('Wallet: ');
+        const amtStr= get('Amount: ').replace(' LGC','').replace(/,/g,'');
+        const amt   = parseFloat(amtStr) || 0;
+        const idStr = get('ID: ');
+        const id    = parseInt(idStr) || ts;
+        const fee   = get('Fee Paid: ').replace(' TON','') || '0.10';
+        const mult  = get('Multiplier: ');
+        const penalty = text.includes('PENALTY');
+
+        if (!addr || !amt) return null;
+
+        return {
+            updateId,
+            id,
+            addr,
+            amt,
+            fee,
+            mult,
+            penalty,
+            ts,
+            type:   isClaim ? 'Claim' : 'Withdrawal',
+            status: 'Pending',
+            tx:     null,
+        };
+    } catch { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LOCAL COMPLETION STORE — persist confirmations done in this panel
+// so they survive a page refresh without re-fetching bot
+// ═══════════════════════════════════════════════════════════════════
+function _getLocalCompletions() {
+    try { return JSON.parse(localStorage.getItem(WD_LOG_KEY)||'[]'); } catch { return []; }
+}
+function _saveLocalCompletion(id, tx, completedAt) {
+    const store = _getLocalCompletions();
+    if (!store.find(c => c.id === id)) {
+        store.unshift({ id, tx, completedAt });
+        if (store.length > 500) store.length = 500;
+        localStorage.setItem(WD_LOG_KEY, JSON.stringify(store));
+    }
+}
+function _mergeLocalCompletions() {
+    const store = _getLocalCompletions();
+    for (const c of store) {
+        const wd = allWithdrawals.find(w => w.id === c.id);
+        if (wd) { wd.status = 'Completed'; wd.tx = c.tx; wd.completedAt = c.completedAt; }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONFIRM A WITHDRAWAL
+// — writes CONF_ACK bot message that index.html polls on open
+// — also writes a CREDIT message the user's app picks up
+// ═══════════════════════════════════════════════════════════════════
+async function confirmWithdrawal(wdId, addr) {
+    const tx = prompt('Paste transaction hash (from TONScan):');
+    if (!tx || tx.trim().length < 10) { toast('Invalid TX hash'); return; }
+    const txClean = tx.trim();
+
+    // 1. Write the bot message that index.html _pollBotConfirmations() reads
+    //    Format: "CONF_ACK|withdrawalId|txHash"
+    const ackText = `CONF_ACK|${wdId}|${txClean}`;
+    const sent = await botSend(ackText).catch(() => false);
+
+    if (!sent) {
+        toast('⚠️ Bot message failed — storing locally only');
+    }
+
+    // 2. Also write a human-readable confirmation note
+    await botSend(
+        `✅ WITHDRAWAL CONFIRMED\nWallet: ${addr}\nID: ${wdId}\nTX: ${txClean}`
+    ).catch(()=>{});
+
+    // 3. Persist locally so this panel shows it as confirmed immediately
+    processed.add('wd_' + wdId);
+    saveProcessed();
+    _saveLocalCompletion(wdId, txClean, Date.now());
+
+    // 4. Update in-memory state and re-render
+    const wd = allWithdrawals.find(w => w.id === wdId);
+    if (wd) { wd.status = 'Completed'; wd.tx = txClean; }
+    renderWithdrawals();
+    updateStats();
+    toast('✅ Confirmed — user notified via bot on next open');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MANUAL CONFIRM (for requests that pre-date bot polling or edge cases)
+// ═══════════════════════════════════════════════════════════════════
+async function manualConfirm() {
+    const addr  = document.getElementById('m-addr').value.trim();
+    const tx    = document.getElementById('m-tx').value.trim();
+    const rawId = document.getElementById('m-id').value.trim();
+
+    if (!addr || !tx) { toast('Fill in wallet address and TX hash'); return; }
     if (!addr.startsWith('UQ') && !addr.startsWith('EQ')) { toast('Invalid wallet address'); return; }
     if (tx.length < 10) { toast('TX hash too short'); return; }
 
-    localStorage.setItem(`lgc_confirm_${addr}`, JSON.stringify({ tx, confirmedAt: Date.now() }));
-    const updated = updateLocal(addr, tx);
-    toast(updated ? '✅ Marked as Completed!' : '✅ Saved — user sees update on next open');
-    document.getElementById('w-addr').value = '';
-    document.getElementById('w-tx').value = '';
+    // Try to match an existing withdrawal by ID or address
+    const wdId  = parseInt(rawId) || 0;
+    const match = wdId
+        ? allWithdrawals.find(w => w.id === wdId)
+        : allWithdrawals.find(w => w.addr === addr && w.status === 'Pending');
+
+    const confirmId = match?.id || wdId || Date.now();
+
+    // Post CONF_ACK — same mechanism as the quick-confirm button
+    const ackText = `CONF_ACK|${confirmId}|${tx}`;
+    const sent = await botSend(ackText).catch(() => false);
+    await botSend(`✅ MANUAL CONFIRM\nWallet: ${addr}\nID: ${confirmId}\nTX: ${tx}`).catch(()=>{});
+
+    if (match) { match.status = 'Completed'; match.tx = tx; }
+    processed.add('wd_' + confirmId);
+    saveProcessed();
+    _saveLocalCompletion(confirmId, tx, Date.now());
+    renderWithdrawals();
+    updateStats();
+
+    document.getElementById('m-addr').value = '';
+    document.getElementById('m-tx').value   = '';
+    document.getElementById('m-id').value   = '';
+
+    toast(sent ? '✅ Confirmed — user notified via bot' : '✅ Stored locally (bot send failed)');
 }
 
-const ADMIN_LOG_KEY = 'lgc_admin_withdrawals';
-
-function getAdminLog() {
-    try { return JSON.parse(localStorage.getItem(ADMIN_LOG_KEY) || '[]'); } catch { return []; }
-}
-function saveAdminLog(log) {
-    try { localStorage.setItem(ADMIN_LOG_KEY, JSON.stringify(log)); } catch {}
-}
-
-function updateLocal(addr, tx, id = null) {
-    const log = getAdminLog();
-    let hit = false;
-    const updated = log.map(w => {
-        const match = id ? w.id === id : (w.addr === addr && w.status === 'Pending');
-        if (match) { hit = true; return { ...w, status: 'Completed', tx, completedAt: Date.now() }; }
-        return w;
-    });
-    if (hit) saveAdminLog(updated);
-
-    try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (raw) {
-            const state = JSON.parse(raw);
-            state.withdrawals = (state.withdrawals || []).map(w => {
-                const match = id ? w.id === id : (w.addr === addr && w.status === 'Pending');
-                if (match) return { ...w, status: 'Completed', tx, completedAt: Date.now() };
-                return w;
-            });
-            localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-        }
-    } catch {}
-    return hit;
-}
-
-function doLookup() {
-    const addr = document.getElementById('l-addr').value.trim();
-    const out  = document.getElementById('lookup-out');
-    if (!addr) { toast('Enter a wallet address'); return; }
-
-    const log   = getAdminLog();
-    const items = addr === '*' ? log : log.filter(w => w.addr === addr);
-
-    if (!items.length) { out.innerHTML = empty(); return; }
-
-    out.innerHTML = items.map(w => {
-        const d  = new Date(w.ts);
-        const ds = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const ts = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        const shortAddr = w.addr ? w.addr.slice(0, 8) + '…' + w.addr.slice(-4) : 'Unknown';
-        return `
-        <div class="glass p-4 rounded-2xl space-y-2">
-            <div class="flex justify-between items-center">
-                <span class="font-black text-[#FFD700]">${Math.floor(w.amt).toLocaleString()} LGC</span>
-                <span class="tag ${w.status === 'Pending' ? 'tag-p' : 'tag-c'}">${w.status}</span>
-            </div>
-            <p class="text-[11px] text-white/60 font-bold break-all">${w.addr || 'Unknown'}</p>
-            <p class="text-[10px] text-white/40">${ds} at ${ts}</p>
-            ${w.tx ? `<p class="text-[10px] text-green-400 break-all">TX: ${w.tx}</p>` : ''}
-            ${w.status === 'Pending' ? `<button class="btn btn-red" style="padding:10px" onclick="quick('${w.addr}',${w.id})"><i class="fa-solid fa-check mr-1"></i>Mark Completed</button>` : ''}
-        </div>`;
-    }).join('');
-}
-
-function quick(addr, id) {
-    const tx = prompt('Paste transaction hash:');
-    if (!tx || tx.length < 10) { toast('Invalid hash'); return; }
-    const ok = updateLocal(addr, tx, id);
-    toast(ok ? '✅ Updated!' : '⚠️ Not found in local state');
-    doLookup();
-}
-
-function approveLiq() {
-    const addr = document.getElementById('liq-wallet').value.trim();
-    if (!addr) { toast('Enter wallet address'); return; }
-    localStorage.setItem(`lgc_liq_approved_${addr}`, JSON.stringify({ approved: true, ts: Date.now() }));
-    try {
-        const raw = localStorage.getItem('lgc_miner_state');
-        if (raw) {
-            const state = JSON.parse(raw);
-            state.bal = (state.bal || 0) + 15000;
-            if (!state.cl) state.cl = [];
-            if (!state.cl.includes('liq')) state.cl.push('liq');
-            state.cl = state.cl.filter(c => c !== 'liq_pending');
-            localStorage.setItem('lgc_miner_state', JSON.stringify(state));
-        }
-    } catch(e) { console.warn('approveLiq local update failed:', e); }
-    toast('✅ Approved! User gets 15,000 LGC on next open');
-    document.getElementById('liq-wallet').value = '';
-}
-
-function rejectLiq() {
-    const addr = document.getElementById('liq-wallet').value.trim();
-    if (!addr) { toast('Enter wallet address'); return; }
-    localStorage.setItem(`lgc_liq_approved_${addr}`, JSON.stringify({ approved: false, ts: Date.now() }));
-    toast('❌ Rejected — user notified on next open');
-    document.getElementById('liq-wallet').value = '';
-}
-
-function creditReferral() {
+// ═══════════════════════════════════════════════════════════════════
+// MANUAL REFERRAL CREDIT OVERRIDE
+// Sends a REF| bot message — the referrer's app picks it up on next open
+// ═══════════════════════════════════════════════════════════════════
+async function manualCreditReferral() {
     const addr  = document.getElementById('ref-wallet').value.trim();
     const count = parseInt(document.getElementById('ref-count-in').value) || 1;
     if (!addr) { toast('Enter referrer wallet address'); return; }
     if (!addr.startsWith('UQ') && !addr.startsWith('EQ')) { toast('Invalid wallet address'); return; }
 
-    const REFEREE_BONUS  = 2000;
-    const REFERRER_RATE  = 0.10;
-    const commissionEach = Math.floor(REFEREE_BONUS * REFERRER_RATE);
-    const totalEarned    = REFEREE_BONUS * count;
+    const REFERRER_BONUS = 200; // 200 LGC per referral (10% of 2,000)
+    const total = REFERRER_BONUS * count;
 
-    const commKey  = `lgc_ref_commission_${addr}`;
-    const existing = JSON.parse(localStorage.getItem(commKey) || '{"count":0,"earned":0}');
-    existing.count  += count;
-    existing.earned += totalEarned;
-    localStorage.setItem(commKey, JSON.stringify(existing));
+    // Send individual REF| messages — one per referral (matches what index.html expects)
+    let sent = 0;
+    for (let i = 0; i < count; i++) {
+        const ok = await botSend(`REF|${addr}|manual_override|${REFERRER_BONUS}`).catch(()=>false);
+        if (ok) sent++;
+    }
 
-    toast(`✅ ${count} referral${count > 1 ? 's' : ''} credited → +${(commissionEach * count).toLocaleString()} LGC for ${addr.slice(0,8)}…`);
-    document.getElementById('ref-wallet').value = '';
+    await botSend(
+        `💰 MANUAL REFERRAL CREDIT\nReferrer: ${addr}\nCount: ${count}\nTotal: +${total} LGC\nSent: ${sent}/${count} messages`
+    ).catch(()=>{});
+
+    document.getElementById('ref-wallet').value   = '';
     document.getElementById('ref-count-in').value = '1';
+    toast(sent === count
+        ? `✅ ${count} referral${count>1?'s':''} credited — referrer picks up +${total} LGC on next open`
+        : `⚠️ ${sent}/${count} messages sent — partial credit`);
+    loadAll();
 }
 
-const LB_KEY = 'lgc_leaderboard_snapshot';
-const EXCLUDED_ADDR = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
-
-function saveLeaderboard() {
+// ═══════════════════════════════════════════════════════════════════
+// LEADERBOARD — publish custom snapshot via bot
+// index.html's renderLeaderboard() reads LB_SNAPSHOT| messages from bot
+// ═══════════════════════════════════════════════════════════════════
+async function publishSnapshot() {
     const raw = document.getElementById('lb-input').value.trim();
     if (!raw) { toast('Enter at least one entry'); return; }
+
     const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
     const entries = [];
     for (const line of lines) {
         const [addr, heldStr] = line.split(',');
-        const held = parseInt((heldStr || '').trim());
+        const held = parseInt((heldStr||'').trim());
         if (!addr || isNaN(held)) { toast(`Invalid line: ${line}`); return; }
-        if (addr.trim() === EXCLUDED_ADDR) continue;
+        if (EXCLUDED.has(addr.trim())) continue;
         entries.push({ addr: addr.trim(), held });
     }
-    entries.sort((a, b) => b.held - a.held);
+    entries.sort((a,b) => b.held - a.held);
     const top15 = entries.slice(0, 15);
-    localStorage.setItem(LB_KEY, JSON.stringify(top15));
-    toast(`✅ Snapshot published — ${top15.length} holders`);
-    renderLBPreview(top15);
+    if (!top15.length) { toast('No valid entries after filtering'); return; }
+
+    // Send structured snapshot message that index.html can read
+    // Format: "LB_SNAPSHOT|JSON"
+    const payload = `LB_SNAPSHOT|${JSON.stringify(top15)}`;
+    const sent = await botSend(payload).catch(()=>false);
+
+    if (sent) {
+        toast(`✅ Snapshot published — ${top15.length} holders · live in ~1 min`);
+        renderLBPreview(top15);
+    } else {
+        toast('⚠️ Bot send failed — snapshot not published');
+    }
 }
 
-function loadLBIntoTextarea() {
-    try {
-        const snap = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
-        document.getElementById('lb-input').value = snap.map(e => `${e.addr},${e.held}`).join('\n');
-        renderLBPreview(snap);
-        toast('Loaded current snapshot');
-    } catch { toast('No snapshot found'); }
+async function clearSnapshot() {
+    const ok = await botSend('LB_SNAPSHOT_CLEAR').catch(()=>false);
+    toast(ok ? '✅ Snapshot cleared — live feed resumes' : '⚠️ Bot send failed');
+    document.getElementById('lb-input').value = '';
+    document.getElementById('lb-preview').innerHTML = '';
 }
 
 function renderLBPreview(snap) {
     const el = document.getElementById('lb-preview');
     if (!snap.length) { el.innerHTML = ''; return; }
-    const total = snap.reduce((s, e) => s + e.held, 0);
-    el.innerHTML = snap.map((e, i) => {
-        const prop = total > 0 ? Math.floor((e.held / total) * 300000) : 0;
-        return `<div class="glass p-3 rounded-xl flex justify-between items-center" style="font-size:11px">
-            <span class="text-white/60">#${i + 1} ${e.addr.slice(0,8)}…${e.addr.slice(-4)}</span>
-            <span class="text-[#FFD700] font-black">${e.held.toLocaleString()} LGC → +${(10000 + prop).toLocaleString()}</span>
+    const total = snap.reduce((s,e)=>s+e.held, 0);
+    el.innerHTML = snap.map((e,i) => {
+        const prop = total > 0 ? Math.floor((e.held/total)*300000) : 0;
+        return `<div class="glass p-3 rounded-xl" style="font-size:11px;display:flex;justify-content:space-between;align-items:center">
+            <span style="color:rgba(255,255,255,0.55)">#${i+1} ${e.addr.slice(0,6)}…${e.addr.slice(-4)}</span>
+            <span style="color:#FFD700;font-weight:800">${e.held.toLocaleString()} LGC · +${(10000+prop).toLocaleString()} wk</span>
         </div>`;
     }).join('');
 }
 
-const empty = () => `<p class="text-white/30 text-sm text-center py-4">No withdrawals found</p>`;
+// ═══════════════════════════════════════════════════════════════════
+// RENDER — withdrawals
+// ═══════════════════════════════════════════════════════════════════
+function renderWithdrawals() {
+    const pending   = allWithdrawals.filter(w => w.status === 'Pending');
+    const completed = allWithdrawals.filter(w => w.status === 'Completed');
 
-// ── Toast ─────────────────────────────────────────────
+    document.getElementById('wd-count').textContent =
+        `${pending.length} pending · ${completed.length} done`;
+
+    // Pending list
+    const wdList = document.getElementById('wd-list');
+    if (!pending.length) {
+        wdList.innerHTML = `<div class="glass p-4 rounded-2xl text-center text-white/25 text-xs">No pending withdrawals 🎉</div>`;
+    } else {
+        wdList.innerHTML = pending.map(w => {
+            const d   = new Date(w.ts);
+            const ts  = d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+            const sh  = w.addr ? w.addr.slice(0,8)+'…'+w.addr.slice(-4) : 'Unknown';
+            return `<div class="glass p-4 rounded-2xl space-y-2">
+                <div class="flex justify-between items-start gap-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-black text-[#FFD700]">${Math.floor(w.amt).toLocaleString()} LGC</span>
+                            <span class="tag tag-p">${w.type}</span>
+                            ${w.penalty ? '<span class="tag tag-r">⚠️ PENALTY</span>' : ''}
+                        </div>
+                        <p class="text-[11px] text-white/50 font-bold mt-1 break-all">${w.addr || 'Unknown'}</p>
+                        <p class="text-[10px] text-white/30 mt-0.5">${ts} · Fee: ${w.fee} TON${w.mult ? ' · ×'+w.mult : ''}</p>
+                    </div>
+                    <div class="flex flex-col gap-1.5 shrink-0">
+                        <button class="btn btn-green" style="padding:8px 14px;width:auto;font-size:11px" onclick="confirmWithdrawal(${w.id},'${w.addr}')">✅ Confirm</button>
+                        <a href="https://tonscan.org/address/${w.addr}" target="_blank"
+                           style="display:block;padding:7px 10px;border-radius:10px;font-size:10px;font-weight:800;color:#FFD700;text-align:center;border:1px solid rgba(255,215,0,0.2);background:rgba(255,215,0,0.06)">🔍 TONScan</a>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Completed list (last 10)
+    const doneList = document.getElementById('done-list');
+    const recent = completed.slice(0, 10);
+    if (!recent.length) {
+        doneList.innerHTML = '';
+    } else {
+        doneList.innerHTML = recent.map(w => {
+            const d  = new Date(w.ts);
+            const ts = d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+            const sh = w.addr ? w.addr.slice(0,6)+'…'+w.addr.slice(-4) : '?';
+            return `<div class="glass p-3 rounded-xl flex justify-between items-center gap-2">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-sm text-white/70">${Math.floor(w.amt).toLocaleString()} LGC</span>
+                        <span class="tag tag-c">Done</span>
+                    </div>
+                    <p class="text-[10px] text-white/30 mt-0.5 break-all">${sh} · ${ts}</p>
+                    ${w.tx ? `<p class="text-[9px] text-green-400 mt-0.5 truncate">TX: ${w.tx}</p>` : ''}
+                </div>
+                <a href="https://tonscan.org/address/${w.addr}" target="_blank"
+                   style="font-size:10px;color:#FFD700;font-weight:800;white-space:nowrap;flex-shrink:0">🔍</a>
+            </div>`;
+        }).join('');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER — referrals
+// ═══════════════════════════════════════════════════════════════════
+function renderReferrals() {
+    const list = document.getElementById('ref-list');
+    if (!allReferrals.length) {
+        list.innerHTML = `<div class="glass p-4 rounded-2xl text-center text-white/25 text-xs">No referral activity found in bot history</div>`;
+        return;
+    }
+    // Show most recent first
+    const sorted = [...allReferrals].sort((a,b) => b.ts - a.ts).slice(0, 30);
+    list.innerHTML = sorted.map(r => {
+        const d  = new Date(r.ts);
+        const ts = d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        const sh = r.referrer ? r.referrer.slice(0,6)+'…'+r.referrer.slice(-4) : '?';
+        return `<div class="glass p-3 rounded-xl flex justify-between items-center gap-2">
+            <div class="flex-1 min-w-0">
+                <p class="text-xs font-black text-white/80 break-all">→ ${sh}</p>
+                <p class="text-[10px] text-white/30 mt-0.5">${ts}</p>
+            </div>
+            <div class="text-right shrink-0">
+                <p class="text-xs font-black text-[#FFD700]">+${r.commission} LGC</p>
+                <span class="tag ${r.acked ? 'tag-c' : 'tag-p'}">${r.acked ? 'Auto-credited' : 'Pending pickup'}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════════════════════════
+function updateStats() {
+    const pending   = allWithdrawals.filter(w => w.status === 'Pending').length;
+    const completed = allWithdrawals.filter(w => w.status === 'Completed').length;
+    const totalLGC  = allWithdrawals.reduce((s,w) => s + (w.amt||0), 0);
+    document.getElementById('stat-pending').textContent   = pending;
+    document.getElementById('stat-completed').textContent = completed;
+    document.getElementById('stat-total-lgc').textContent =
+        totalLGC >= 1000 ? (totalLGC/1000).toFixed(1)+'K' : Math.floor(totalLGC);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════════
 function toast(msg) {
     const t = document.getElementById('toast');
     t.innerText = msg; t.style.opacity = '1';
-    clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', 3000);
+    clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', 3500);
 }
 </script>
 </body>

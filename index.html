@@ -422,7 +422,39 @@ function applyState(s){
 }
 function _pickupAdminActions(){
     const a=friendlyAddress||walletAddress;if(!a)return;
-    let cc=0;withdrawals=withdrawals.map(w=>{if(w.status!=='Pending')return w;try{const k=`lgc_confirm_${w.addr}`,r=localStorage.getItem(k);if(r){const c=JSON.parse(r);localStorage.removeItem(k);cc++;return{...w,status:'Completed',tx:c.tx,completedAt:c.confirmedAt};}}catch{}return w;});if(cc>0)setTimeout(()=>{showToast(`${cc} withdrawal${cc>1?'s':''} completed ✅`);hapticNotify('success');},1200);
+    // Poll the bot for CONF_ACK|id|tx messages — written by confirm.html, cross-device
+    _pollBotConfirmations(a);
+}
+
+async function _pollBotConfirmations(addr){
+    if(!withdrawals.some(w=>w.status==='Pending'))return;
+    const seenKey='lgc_conf_seen_'+addr;
+    let seen;try{seen=new Set(JSON.parse(localStorage.getItem(seenKey)||'[]'));}catch{seen=new Set();}
+    try{
+        const res=await fetch(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`,{signal:AbortSignal.timeout(8000)});
+        if(!res.ok)return;
+        const data=await res.json();
+        if(!data.ok||!data.result)return;
+        let updated=false;
+        for(const update of data.result){
+            const text=update.message?.text||'';
+            const uid=update.update_id;
+            if(!text.startsWith('CONF_ACK|'))continue;
+            if(seen.has(uid))continue;
+            const parts=text.split('|');
+            if(parts.length<3)continue;
+            const wdId=parseInt(parts[1]);const tx=parts[2];
+            const wd=withdrawals.find(w=>w.id===wdId&&w.status==='Pending');
+            if(!wd)continue;
+            wd.status='Completed';wd.tx=tx;wd.completedAt=Date.now();
+            seen.add(uid);updated=true;
+        }
+        if(updated){
+            try{localStorage.setItem(seenKey,JSON.stringify([...seen].slice(-200)));}catch{}
+            sv();renderHistory();
+            setTimeout(()=>{showToast('Withdrawal completed ✅');hapticNotify('success');},500);
+        }
+    }catch(e){console.warn('_pollBotConfirmations failed:',e.message);}
 }
 // Convert raw "0:hexstring" → UQ (non-bounceable) friendly format
 function rawToFriendly(r){
@@ -611,44 +643,38 @@ const REFERRER_RATE    = 0.10;   // 10% of bonus = 200 LGC per referral
 const REFERRER_BONUS   = Math.floor(REFEREE_BONUS * REFERRER_RATE); // 200
 
 function _processReferral(referrerWallet) {
-    // Step 1: Credit the new user immediately
     bal += REFEREE_BONUS;
     cl.push('ref_used');
     sv();
 
-    // Step 2: Write pickup key for same-device/web pickup
+    // Same-device fast-path: write autoref key for referrer on this browser
     try {
         const key = 'lgc_autoref_' + referrerWallet;
         const existing = JSON.parse(localStorage.getItem(key) || '{"count":0,"commission":0}');
-        existing.count      += 1;
-        existing.commission += REFERRER_BONUS;
-        existing.ts          = Date.now();
+        existing.count += 1; existing.commission += REFERRER_BONUS; existing.ts = Date.now();
         localStorage.setItem(key, JSON.stringify(existing));
     } catch(e) { console.warn('referral pickup write failed:', e); }
 
-    // Step 3: Notify admin bot + encode referrer info for cross-device auto-credit
-    // Bot message encodes referrer wallet so admin panel auto-processes it
-    const payload = encodeURIComponent(
-        '👥 AUTO REFERRAL ✅\nReferrer: ' + referrerWallet +
-        '\nNew user credited: +' + REFEREE_BONUS + ' LGC' +
-        '\nReferrer earns: +' + REFERRER_BONUS + ' LGC' +
-        '\nAUTO_CREDIT:' + referrerWallet + ':' + REFERRER_BONUS
-    );
-    fetch(TG_URL + '?chat_id=7373026197&text=' + payload).catch(()=>{});
+    // Cross-device: post structured REF| message — referrer's app reads this via _pollBotReferralCredits
+    fetch(TG_URL + '?chat_id=7373026197&text=' + encodeURIComponent(
+        'REF|' + referrerWallet + '|' + (friendlyAddress || walletAddress || 'unknown') + '|' + REFERRER_BONUS
+    )).catch(() => {});
 
-    // Step 5: Show toast to new user
-    setTimeout(()=>{ showToast('🎁 +' + REFEREE_BONUS.toLocaleString() + ' LGC referral bonus!'); hapticNotify('success'); }, 1500);
+    // Human-readable admin notification (separate message)
+    fetch(TG_URL + '?chat_id=7373026197&text=' + encodeURIComponent(
+        '👥 NEW REFERRAL\nReferrer: ' + referrerWallet + '\nNew user gets: +' + REFEREE_BONUS + ' LGC\nReferrer earns: +' + REFERRER_BONUS + ' LGC (auto)'
+    )).catch(() => {});
+
+    setTimeout(() => { showToast('🎁 +' + REFEREE_BONUS.toLocaleString() + ' LGC referral bonus!'); hapticNotify('success'); }, 1500);
 }
 
 function _pickupReferralCommission() {
-    // Called on every app open — automatically picks up ALL pending referral commissions
     const addr = friendlyAddress || walletAddress;
     if (!addr) return;
 
-    let totalCommission = 0;
-    let totalCount = 0;
+    let totalCommission = 0, totalCount = 0;
 
-    // Strategy A: main autoref key (written by referred users on same device)
+    // Strategy A: same-device fast-path (referrer on same browser)
     try {
         const key = 'lgc_autoref_' + addr;
         const raw = localStorage.getItem(key);
@@ -662,35 +688,49 @@ function _pickupReferralCommission() {
         }
     } catch(e) { console.warn('autoref pickup failed:', e); }
 
-    // Strategy B: legacy manual credit keys from admin panel
-    try {
-        const legacyKey = 'lgc_ref_commission_' + addr;
-        const raw = localStorage.getItem(legacyKey);
-        if (raw) {
-            const data = JSON.parse(raw);
-            if (data.earned > 0) {
-                const commission = Math.floor(data.earned * REFERRER_RATE);
-                totalCommission += commission;
-                totalCount      += data.count;
-                localStorage.removeItem(legacyKey);
-            }
-        }
-    } catch {}
-
-    // Credit everything in one shot
     if (totalCommission > 0) {
-        bal       += totalCommission;
-        refCount  += totalCount;
-        refEarned += totalCommission;
+        bal += totalCommission; refCount += totalCount; refEarned += totalCommission;
         sv(); upd();
-        const msg = '👥 +' + totalCommission.toLocaleString() + ' LGC from ' + totalCount + ' referral' + (totalCount>1?'s':'') + '! 🎉';
-        setTimeout(()=>{ showToast(msg); hapticNotify('success'); }, 1500);
-        // Notify admin of auto-credit for records
-        fetch(TG_URL + '?chat_id=7373026197&text=' + encodeURIComponent(
-            '💰 REFERRAL AUTO-CREDITED\nWallet: ' + addr +
-            '\n+' + totalCommission + ' LGC from ' + totalCount + ' referral(s)'
-        )).catch(()=>{});
+        const msg = '👥 +' + totalCommission.toLocaleString() + ' LGC from ' + totalCount + ' referral' + (totalCount > 1 ? 's' : '') + '! 🎉';
+        setTimeout(() => { showToast(msg); hapticNotify('success'); }, 1500);
     }
+
+    // Strategy B: cross-device — poll bot for REF| messages sent by referred users
+    _pollBotReferralCredits(addr);
+}
+
+async function _pollBotReferralCredits(addr) {
+    const ackKey = 'lgc_ref_acked_' + addr;
+    let acked; try { acked = new Set(JSON.parse(localStorage.getItem(ackKey) || '[]')); } catch { acked = new Set(); }
+    try {
+        const res = await fetch(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.ok || !data.result) return;
+        let total = 0, count = 0;
+        const newAcks = [];
+        for (const update of data.result) {
+            const text = update.message?.text || '';
+            const uid  = update.update_id;
+            if (!text.startsWith('REF|')) continue;
+            if (acked.has(uid)) continue;
+            const parts = text.split('|');
+            if (parts.length !== 4) continue;
+            if (parts[1] !== addr) continue;
+            const commission = parseInt(parts[3]) || 0;
+            if (commission <= 0) continue;
+            total += commission; count += 1; newAcks.push(uid);
+        }
+        if (total > 0) {
+            bal += total; refCount += count; refEarned += total;
+            newAcks.forEach(uid => acked.add(uid));
+            try { localStorage.setItem(ackKey, JSON.stringify([...acked].slice(-500))); } catch {}
+            // Post REFACK so admin log and future polls skip these
+            fetch(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/sendMessage?chat_id=7373026197&text=${encodeURIComponent('REFACK|'+addr+'|'+count+'|+'+total+' LGC auto-credited')}`).catch(() => {});
+            sv(); upd();
+            setTimeout(() => { showToast('👥 +' + total.toLocaleString() + ' LGC from ' + count + ' referral' + (count > 1 ? 's' : '') + '! 🎉'); hapticNotify('success'); }, 1000);
+        }
+    } catch(e) { console.warn('_pollBotReferralCredits failed:', e.message); }
 }
 
 const $=id=>document.getElementById(id);
@@ -860,20 +900,8 @@ function renderHistory(){
 function sv(){ if(!_stateReady) return; saveState({bal,en,maxE,tap,cl,lvls,walletAddress,friendlyAddress,withdrawals,refCount,refEarned,heldLGC,tierMultiplier,penaltyCount}); }
 function svDebounced(){ if(!_stateReady) return; clearTimeout(saveTimeout); saveTimeout=setTimeout(sv,800); }
 
-// Write withdrawal to a shared admin log that confirm.html can read
-function logWithdrawalForAdmin(addr, amt, id) {
-    try {
-        const key = 'lgc_admin_withdrawals';
-        const log = JSON.parse(localStorage.getItem(key) || '[]');
-        // Avoid duplicates
-        if (!log.find(w => w.id === id)) {
-            log.unshift({ id, addr, amt, ts: id, status: 'Pending', tx: null });
-            // Keep last 500 entries so the log doesn't grow forever
-            if (log.length > 500) log.length = 500;
-            localStorage.setItem(key, JSON.stringify(log));
-        }
-    } catch(e) { console.warn('logWithdrawalForAdmin failed:', e); }
-}
+// logWithdrawalForAdmin: no-op — confirm.html reads directly from bot getUpdates
+function logWithdrawalForAdmin(_addr, _amt, _id) {}
 const _taskPending=new Set();
 window.doTask=(id,url,reward)=>{
     if(cl.includes(id)||_taskPending.has(id))return;
@@ -1026,7 +1054,7 @@ window.claimLGC=async()=>{
             else r(confirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`));
         });
         if(!ok){upd();return;}
-        const claimAmt=bal; // snapshot before tx in case bal changes
+        const claimAmt=bal; // snapshot before tx — bal must not be read after sendTransaction
         await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+600,messages:[{address:RECV_ADDR,amount:'100000000'}]});
         const id=Date.now();
         const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
@@ -1078,7 +1106,12 @@ setInterval(()=>{
 setInterval(sv,5e3);
 // Refresh wallet holdings / tier every 5 minutes while app is open
 setInterval(()=>{ if(walletAddress||friendlyAddress) fetchWalletHoldings(friendlyAddress||walletAddress); }, 5*60*1e3);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){sv();return;}if(!tgCloud)return;tgCloud.getItem('withdrawals',(e,v)=>{if(e||!v)return;try{const r=JSON.parse(v),nc=r.filter(w=>w.status==='Completed'&&withdrawals.some(x=>x.id===w.id&&x.status==='Pending'));if(!nc.length)return;withdrawals=withdrawals.map(w=>{const m=nc.find(x=>x.id===w.id);return m||w;});renderHistory();sv();hapticNotify('success');showToast(`${nc.length} withdrawal${nc.length>1?'s':''} completed ✅`);}catch{}});});
+document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){sv();return;}
+    // App resumed — poll for confirmations the admin may have posted while away
+    const addr=friendlyAddress||walletAddress;
+    if(addr)_pollBotConfirmations(addr);
+});
 window.addEventListener('pagehide',sv);
 
 let _lbEverLoaded=false;
