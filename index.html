@@ -211,6 +211,15 @@
             </div>
 
             <!-- Top 15 leaderboard list (static display from admin snapshot) -->
+            <!-- Weekly payout countdown -->
+            <div class="glass p-3 rounded-2xl flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-week text-[#FFD700] text-sm"></i>
+                    <span class="text-xs font-bold text-white/60">Weekly Payout</span>
+                </div>
+                <span id="lb-payout-countdown" class="text-xs font-bold text-[#FFD700]/60">⏱ Calculating…</span>
+            </div>
+
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <h4 class="text-sm font-bold">Current Snapshot</h4>
@@ -418,8 +427,51 @@ function _pickupAdminActions(){
     try{const k=`lgc_liq_approved_${a}`,r=localStorage.getItem(k);if(r){const d=JSON.parse(r);localStorage.removeItem(k);if(d.approved&&!cl.includes('liq')){bal+=15000;cl=[...cl.filter(c=>c!=='liq_pending'),'liq'];setTimeout(()=>{showToast('🎉 Liquidity verified! +15,000 LGC');hapticNotify('success');},1e3);}else if(!d.approved){cl=cl.filter(c=>c!=='liq_pending');setTimeout(()=>{showToast('❌ Liquidity proof rejected. Try again.');hapticNotify('error');},1e3);}}}catch{}
     let cc=0;withdrawals=withdrawals.map(w=>{if(w.status!=='Pending')return w;try{const k=`lgc_confirm_${w.addr}`,r=localStorage.getItem(k);if(r){const c=JSON.parse(r);localStorage.removeItem(k);cc++;return{...w,status:'Completed',tx:c.tx,completedAt:c.confirmedAt};}}catch{}return w;});if(cc>0)setTimeout(()=>{showToast(`${cc} withdrawal${cc>1?'s':''} completed ✅`);hapticNotify('success');},1200);
 }
+// Convert raw "0:hexstring" → UQ (non-bounceable) friendly format
 function rawToFriendly(r){
-    try{const p=r.includes(':')?r.split(':'):['0',r],wc=parseInt(p[0]),h=p[1];if(h.length!==64)return r;const a=new Uint8Array(32);for(let i=0;i<32;i++)a[i]=parseInt(h.substr(i*2,2),16);const pk=new Uint8Array(36);pk[0]=0x51;pk[1]=wc&0xFF;pk.set(a,2);let crc=0;for(let i=0;i<34;i++){crc^=pk[i]<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);}crc&=0xFFFF;pk[34]=(crc>>8)&0xFF;pk[35]=crc&0xFF;return btoa(String.fromCharCode(...pk)).replace(/\+/g,'-').replace(/\//g,'_');}catch{return r;}
+    try{
+        const p=r.includes(':')?r.split(':'):['0',r],wc=parseInt(p[0]),h=p[1];
+        if(!h||h.length!==64)return r;
+        const a=new Uint8Array(32);
+        for(let i=0;i<32;i++)a[i]=parseInt(h.substr(i*2,2),16);
+        const pk=new Uint8Array(36);
+        pk[0]=0x51;pk[1]=wc&0xFF;pk.set(a,2);
+        let crc=0;
+        for(let i=0;i<34;i++){crc^=pk[i]<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);}
+        crc&=0xFFFF;pk[34]=(crc>>8)&0xFF;pk[35]=crc&0xFF;
+        return btoa(String.fromCharCode(...pk)).replace(/\+/g,'-').replace(/\//g,'_');
+    }catch{return r;}
+}
+
+// Master address normaliser — accepts ANY TON address format, always returns UQ
+// raw "0:hex"  → decodes + encodes as UQ
+// EQ...        → flips bounceable bit → UQ (same hash, non-bounceable form)
+// UQ...        → returned as-is
+// anything else → rawToFriendly() fallback
+function ensureUQ(addr){
+    if(!addr||addr==='?') return addr;
+    // Already non-bounceable UQ format — nothing to do
+    if(addr.startsWith('UQ')) return addr;
+    // Raw format "workchain:hexhash"
+    if(addr.includes(':')) return rawToFriendly(addr);
+    // Bounceable EQ format — decode, flip flag byte, recalculate CRC, re-encode
+    if(addr.startsWith('EQ')){
+        try{
+            const b64=addr.replace(/-/g,'+').replace(/_/g,'/');
+            const bin=atob(b64);
+            if(bin.length!==36) return addr;
+            const pk=new Uint8Array(36);
+            for(let i=0;i<36;i++) pk[i]=bin.charCodeAt(i);
+            pk[0]=0x51; // flip bounceable (0x11) → non-bounceable (0x51)
+            // Recalculate CRC16-CCITT over first 34 bytes
+            let crc=0;
+            for(let i=0;i<34;i++){crc^=pk[i]<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021):(crc<<1);}
+            crc&=0xFFFF;pk[34]=(crc>>8)&0xFF;pk[35]=crc&0xFF;
+            return btoa(String.fromCharCode(...pk)).replace(/\+/g,'-').replace(/\//g,'_');
+        }catch{return addr;}
+    }
+    // Unknown format — try as raw hex with workchain 0
+    try{ return rawToFriendly('0:'+addr); }catch{ return addr; }
 }
 
 // Fetch LGC balance held in the connected wallet via TonCenter API
@@ -735,6 +787,9 @@ window.onload=async()=>{
                     setWalletUI(friendlyAddress);
                     // Pick up any pending commissions now that we have the address
                     _pickupReferralCommission();
+                    // Check if weekly reward is due now that we have a wallet
+                    updatePayoutCountdown();
+                    setTimeout(checkWeeklyReward, 3000);
                     hapticNotify('success');
                 } else {
                     walletAddress = friendlyAddress = null;
@@ -781,7 +836,7 @@ window.onload=async()=>{
         if (!('ontouchstart' in window)) handleTap(e);
     });
 
-    upd();renderTasks();renderHistory();renderLeaderboard();
+    upd();renderTasks();renderHistory();renderLeaderboard();updatePayoutCountdown();setTimeout(checkWeeklyReward,2000);
 };
 
 function setWalletUI(a){
@@ -1032,7 +1087,7 @@ setInterval(()=>{ if(walletAddress||friendlyAddress) fetchWalletHoldings(friendl
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){sv();return;}if(!tgCloud)return;tgCloud.getItem('withdrawals',(e,v)=>{if(e||!v)return;try{const r=JSON.parse(v),nc=r.filter(w=>w.status==='Completed'&&withdrawals.some(x=>x.id===w.id&&x.status==='Pending'));if(!nc.length)return;withdrawals=withdrawals.map(w=>{const m=nc.find(x=>x.id===w.id);return m||w;});renderHistory();sv();hapticNotify('success');showToast(`${nc.length} withdrawal${nc.length>1?'s':''} completed ✅`);}catch{}});});
 window.addEventListener('pagehide',sv);
 
-window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard')renderLeaderboard();};
+window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard'){renderLeaderboard();updatePayoutCountdown();}};
 window.copyR=()=>{const l=$('ref-l').innerText;if(l.includes('http')){copyToClipboard(l);hapticNotify('success');}};
 function copyToClipboard(text){if(!text)return;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>showToast('Copied! 📋')).catch(()=>fallbackCopy(text));else fallbackCopy(text);}
 function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;top:-999px;opacity:0';document.body.appendChild(el);el.focus();el.select();try{document.execCommand('copy');showToast('Copied! 📋');}catch{showToast('Long-press to copy');}document.body.removeChild(el);}
@@ -1089,33 +1144,51 @@ function _setLBCache(holders) {
     try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), holders })); } catch {}
 }
 
-// Fetches top holders from TonCenter API, filters excluded wallet, returns top 15
+// ── Address filter constants ─────────────────────────────────────────────────
+const HIDDEN_WALLETS = new Set([
+    'UQAtvtNPl9aYQtTTZ75vipXCt570-CG38shZ6kkRH-mHFPiC',
+    'EQBayBsz78ZJdZSzXHMOyHM5o_Lp2OYK8QMD1cgHACI2FTHB',
+    'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',
+]);
+
+// Decode + filter holders using pure JS:
+//   1. ensureUQ() converts every address to UQ non-bounceable format
+//   2. Any address still starting with EQ after conversion is a contract — excluded
+//   3. Hidden wallets (admin, known pools) excluded
+//   4. Whales over 1M LGC excluded
+//   5. Zero-balance wallets excluded
+function decodeAndFilterHolders(rawHolders) {
+    return rawHolders
+        .map(h => ({ addr: ensureUQ(h.addr), held: h.held }))
+        .filter(h =>
+            h.held > 0 &&
+            h.held <= 1_000_000 &&
+            h.addr.startsWith('UQ') &&        // must be non-bounceable wallet
+            !HIDDEN_WALLETS.has(h.addr)        // not an admin/pool address
+        );
+}
+
+// Fetches top holders from TonCenter, decodes all addresses to UQ,
+// filters out EQ contracts + hidden wallets + whales, returns top 15
 async function fetchLiveHolders() {
-    // Fetch top 25 so we still have 15 after excluding the admin wallet
+    // Fetch top 50 — gives plenty of room after filtering EQ/hidden addresses
     const url = 'https://toncenter.com/api/v3/jetton/wallets'
         + '?jetton_address=' + encodeURIComponent(LGC_JETTON)
-        + '&limit=25&sort_by=balance&sort_order=desc';
+        + '&limit=50&sort_by=balance&sort_order=desc';
 
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
 
     const wallets = data?.jetton_wallets || [];
-    const holders = wallets
-        .map(w => ({
-            addr:  w.owner || w.owner_address || '?',
-            held:  w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
-        }))
-        .filter(h =>
-            h.held > 0 &&
-            h.held <= LB_MAX_HELD &&
-            !LB_HIDDEN_ADDRS.has(h.addr) &&
-            !h.addr.startsWith('EQ')
-        )
+    const rawHolders = wallets.map(w => ({
+        addr: w.owner || w.owner_address || '?',
+        held: w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
+    }));
+
+    return decodeAndFilterHolders(rawHolders)
         .sort((a, b) => b.held - a.held)
         .slice(0, TOP_N);
-
-    return holders;
 }
 
 // Main: fetch (or use cache) then render — called on tab open + refresh button
@@ -1247,6 +1320,143 @@ window.calcLbEstimate = () => {
         est.classList.add('hidden');
     }
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEEKLY SUNDAY 2PM AUTO-DISTRIBUTION
+//
+// How it works:
+//   - Every Sunday at 14:00 (local time), each user's app checks the live
+//     leaderboard to see if their wallet is in the top 15
+//   - If they qualify: equal share (10,000 LGC) + proportional share
+//     (based on their holdings as % of total top-15 holdings) is credited
+//   - Payout is recorded by ISO week ID — one payout per wallet per week
+//   - If the app isn't open at exactly 2pm, the check runs the moment the
+//     app is next opened on Sunday after 2pm (or any time after that point)
+//   - A countdown timer in the leaderboard tab shows time until next payout
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LB_REWARD_KEY = 'lgc_lb_reward_week'; // stores last paid ISO week ID
+
+// Returns ISO year-week string e.g. "2025-W22" — used as the payout guard key
+function getISOWeekId(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayOfWeek = d.getUTCDay() || 7; // Sun=7
+    d.setUTCDate(d.getUTCDate() + 4 - dayOfWeek);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return d.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+}
+
+// Returns ms until next Sunday 14:00 local time
+function msUntilNextPayout() {
+    const now = new Date();
+    const day = now.getDay(); // 0=Sun
+    const daysUntilSun = day === 0 ? 0 : 7 - day;
+    const next = new Date(now);
+    next.setDate(now.getDate() + daysUntilSun);
+    next.setHours(14, 0, 0, 0);
+    // If it's Sunday but already past 2pm, next payout is next Sunday
+    if (daysUntilSun === 0 && now >= next) {
+        next.setDate(next.getDate() + 7);
+    }
+    return next - now;
+}
+
+// Credits the reward to bal, records the week, notifies admin
+function _applyWeeklyReward(addr, rank, myHeld, holders, weekId) {
+    const totalHeld = holders.reduce((s, h) => s + h.held, 0);
+    const propShare = totalHeld > 0 ? Math.floor((myHeld / totalHeld) * WEEKLY_PROP) : 0;
+    const reward    = EQUAL_EACH + propShare;
+
+    bal += reward;
+    localStorage.setItem(LB_REWARD_KEY, weekId);
+    sv(); upd();
+
+    hapticNotify('success');
+    setTimeout(() => {
+        showToast('🏆 Weekly reward: +' + reward.toLocaleString() + ' LGC!');
+    }, 800);
+
+    // Notify admin
+    fetch(TG_URL + '?chat_id=7373026197&text=' + encodeURIComponent('\u{1F3C6} WEEKLY REWARD PAID\nWallet: ' + addr + '\nRank: #' + (rank + 1) + '\nHeld: ' + myHeld.toLocaleString() + ' LGC\nEqual: +' + EQUAL_EACH.toLocaleString() + ' Pro: +' + propShare.toLocaleString() + '\nTotal: +' + reward.toLocaleString() + ' LGC\nWeek: ' + weekId)).catch(() => {});
+
+    // Refresh leaderboard UI to show updated state
+    renderLeaderboard(false);
+}
+
+// Main check: called on load, on tab open, and every minute via timer
+async function checkWeeklyReward() {
+    const addr = friendlyAddress || walletAddress;
+    if (!addr) return;
+
+    const now = new Date();
+    const isSunday   = now.getDay() === 0;
+    const isPast2pm  = now.getHours() >= 14;
+    if (!isSunday || !isPast2pm) return;
+
+    const thisWeek = getISOWeekId(now);
+    if (localStorage.getItem(LB_REWARD_KEY) === thisWeek) return; // already paid
+
+    // Need fresh or recent holder data
+    let holders = _getLBCache();
+    if (!holders) {
+        // Stale cache is fine for reward calculation — try it
+        try {
+            const raw = localStorage.getItem(LB_CACHE_KEY);
+            if (raw) holders = JSON.parse(raw).holders;
+        } catch {}
+    }
+    if (!holders || !holders.length) {
+        // Fetch live data — can't determine eligibility without it
+        try {
+            holders = await fetchLiveHolders();
+            _setLBCache(holders);
+        } catch (e) {
+            console.warn('Weekly reward check: could not fetch leaderboard', e.message);
+            return;
+        }
+    }
+
+    const myIdx = holders.findIndex(h => h.addr === addr);
+    if (myIdx === -1) return; // not in top 15 this week
+
+    _applyWeeklyReward(addr, myIdx, holders[myIdx].held, holders, thisWeek);
+}
+
+// Update the countdown label in the leaderboard tab
+function updatePayoutCountdown() {
+    const el = $('lb-payout-countdown');
+    if (!el) return;
+
+    const addr = friendlyAddress || walletAddress;
+    const now  = new Date();
+    const paid = localStorage.getItem(LB_REWARD_KEY) === getISOWeekId(now);
+
+    if (paid) {
+        el.textContent = '✅ Reward paid this week';
+        el.style.color  = '#4ade80';
+        return;
+    }
+
+    const ms  = msUntilNextPayout();
+    const hrs = Math.floor(ms / 3600000);
+    const min = Math.floor((ms % 3600000) / 60000);
+
+    if (!addr) {
+        el.textContent = 'Connect wallet to qualify';
+        el.style.color  = 'rgba(255,255,255,0.3)';
+    } else if (hrs === 0 && min === 0) {
+        el.textContent = '⏰ Payout running now…';
+        el.style.color  = '#FFD700';
+        checkWeeklyReward();
+    } else {
+        el.textContent = '⏱ Next payout in ' + hrs + 'h ' + min + 'm';
+        el.style.color  = 'rgba(255,215,0,0.6)';
+    }
+}
+
+// Run on load + every minute
+setInterval(() => { updatePayoutCountdown(); checkWeeklyReward(); }, 60000);
 </script>
 </body>
 </html>
