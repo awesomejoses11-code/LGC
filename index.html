@@ -223,7 +223,7 @@
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <h4 class="text-sm font-bold">Current Snapshot</h4>
-                    <span id="lb-week-label" class="text-[9px] text-white/25 font-bold"id="lb-live-status">⏳ Loading…</span>
+                    <span id="lb-live-status" class="text-[9px] text-white/25 font-bold">⏳ Loading…</span>
                 </div>
                 <div id="lb-list" class="space-y-2">
                     <!-- Populated by renderLeaderboard() -->
@@ -255,18 +255,6 @@
         <button onclick="switchTab('leaderboard')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-trophy text-sm"></i><span class="text-[9px] font-black">TOP 15</span></button>
     </nav>
 
-    <div id="liq-modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="flex justify-between items-center mb-4"><h3 style="font-size:18px;font-weight:800">Verify Liquidity</h3><button onclick="closeLiqModal()" style="color:rgba(255,255,255,0.35);font-size:22px;background:none;border:none;cursor:pointer;line-height:1">✕</button></div>
-            <div style="background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.18);border-radius:14px;padding:14px;margin-bottom:16px"><p style="font-size:11px;color:#FFD700;font-weight:700;line-height:1.9">📋 HOW TO VERIFY:<br>1. Add liquidity on DeDust<br>2. Go to your DeDust portfolio page<br>3. Copy the URL from your browser<br>4. Paste it below and submit</p></div>
-            <button onclick="window.open('https://dedust.io/pools/EQDzD4_8Wt7OYnbaZ3hqCvZEyBNxMSdSEyjggY8qbNs39Pg3','_blank')" style="width:100%;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);color:#FFD700;font-weight:800;padding:13px;border-radius:14px;cursor:pointer;margin-bottom:12px;font-family:inherit;font-size:13px">🔗 Open DeDust Pool</button>
-            <input type="url" id="liq-proof" class="inp" placeholder="Your DeDust portfolio URL" style="margin-bottom:10px">
-            <textarea id="liq-note" class="inp" placeholder="Optional: amount added, wallet used, etc." style="margin-bottom:16px"></textarea>
-            <button onclick="submitLiqProof()" style="width:100%;background:#FFD700;color:black;font-weight:800;padding:16px;border-radius:14px;cursor:pointer;font-family:inherit;font-size:14px;border:none">SUBMIT FOR REVIEW</button>
-            <p style="text-align:center;color:rgba(255,255,255,0.25);font-size:10px;margin-top:14px">Reward credited after manual verification · Usually within 24h</p>
-        </div>
-    </div>
-
 <script>
 'use strict';
 const tgApp=window.Telegram?.WebApp,tgCloud=tgApp?.CloudStorage||null,tgHaptic=tgApp?.HapticFeedback||null;
@@ -291,9 +279,13 @@ function calcWithdrawalFee(amount) {
     const extraK = Math.ceil((amount - 5000) / 1000);
     return Math.round((0.10 + extraK * 0.02) * 100) / 100;
 }
-// Returns fee in nanoTON (for sendTransaction)
+// Returns fee in nanoTON (for sendTransaction) — uses integer arithmetic to avoid float precision errors
 function calcWithdrawalFeeNano(amount) {
-    return Math.round(calcWithdrawalFee(amount) * 1e9);
+    // Work in integer cents-of-TON to avoid 0.10 * 1e9 = 99999999.99... float drift
+    if (amount <= 5000) return 100_000_000; // exactly 0.10 TON
+    const extraK = Math.ceil((amount - 5000) / 1000);
+    // 0.10 TON base + extraK * 0.02 TON — computed in nanoTON integers
+    return 100_000_000 + extraK * 20_000_000;
 }
 
 // ── Holder multiplier system ──────────────────────────────────────────────────
@@ -331,12 +323,13 @@ function calcHolderMultiplier(held) {
     return 1.0; // base — no bonus below 5,000 LGC
 }
 
-// Returns the next tier threshold above current held amount
+// Returns the next tier threshold strictly above current held amount
 function _nextTierThreshold(held) {
+    // Iterate from lowest tier up to find first threshold strictly above held
     for (let i = BOOST_TIERS.length - 1; i >= 0; i--) {
         if (BOOST_TIERS[i][0] > held) return BOOST_TIERS[i];
     }
-    return null; // already at max
+    return null; // already at max tier
 }
 
 // Compute effective multiplier — applies penalty if active, else holder rate
@@ -361,12 +354,12 @@ function mergeStates(cloud, local) {
     if (!local)  return cloud;
     const tCloud = cloud.lastSaved || 0;
     const tLocal = local.lastSaved  || 0;
-    // If one save has more than 100 LGC more than the other, trust the richer one
-    // (guards against a zero-state race overwriting real progress)
+    // If one save has more than 500 LGC more than the other, trust the richer one
+    // (raised from 100 — upgrades cost ≥2,000 LGC so 500 avoids rolling back valid spending)
     const bCloud = cloud.bal || 0;
     const bLocal = local.bal  || 0;
-    if (bCloud > bLocal + 100) return cloud;
-    if (bLocal > bCloud + 100) return local;
+    if (bCloud > bLocal + 500) return cloud;
+    if (bLocal > bCloud + 500) return local;
     // Otherwise use the newer timestamp; ties go to local
     return tCloud > tLocal ? cloud : local;
 }
@@ -417,14 +410,18 @@ function applyState(s){
     refCount=s.refCount??0;refEarned=s.refEarned??0;
     heldLGC=s.heldLGC??0;tierMultiplier=s.tierMultiplier??1.0;penaltyCount=s.penaltyCount??0;
     en=s.en??1000;
-    if(s.lastSaved){const sec=Math.floor((Date.now()-s.lastSaved)/1000);en=Math.min(maxE,en+sec*REGEN_PER_SEC);}
+    if(s.lastSaved){
+        const sec=Math.floor((Date.now()-s.lastSaved)/1000);
+        const savedMult=s.tierMultiplier??1.0;
+        const offlineRegen=REGEN_PER_SEC*Math.min(3,savedMult);
+        en=Math.min(maxE,en+sec*offlineRegen);
+    }
     // Sync ref_used into localStorage so the referral guard works cross-storage
     if(cl.includes('ref_used')) localStorage.setItem('lgc_ref_used','1');
     _pickupAdminActions();
 }
 function _pickupAdminActions(){
     const a=friendlyAddress||walletAddress;if(!a)return;
-    try{const k=`lgc_liq_approved_${a}`,r=localStorage.getItem(k);if(r){const d=JSON.parse(r);localStorage.removeItem(k);if(d.approved&&!cl.includes('liq')){bal+=15000;cl=[...cl.filter(c=>c!=='liq_pending'),'liq'];setTimeout(()=>{showToast('🎉 Liquidity verified! +15,000 LGC');hapticNotify('success');},1e3);}else if(!d.approved){cl=cl.filter(c=>c!=='liq_pending');setTimeout(()=>{showToast('❌ Liquidity proof rejected. Try again.');hapticNotify('error');},1e3);}}}catch{}
     let cc=0;withdrawals=withdrawals.map(w=>{if(w.status!=='Pending')return w;try{const k=`lgc_confirm_${w.addr}`,r=localStorage.getItem(k);if(r){const c=JSON.parse(r);localStorage.removeItem(k);cc++;return{...w,status:'Completed',tx:c.tx,completedAt:c.confirmedAt};}}catch{}return w;});if(cc>0)setTimeout(()=>{showToast(`${cc} withdrawal${cc>1?'s':''} completed ✅`);hapticNotify('success');},1200);
 }
 // Convert raw "0:hexstring" → UQ (non-bounceable) friendly format
@@ -539,8 +536,8 @@ function applyTier() {
                 if (tnx) tnx.textContent = '👑 Maximum multiplier reached!';
             } else {
                 const [nextMin, nextMult] = nextTier;
-                // Find the tier floor (tier below current next)
-                const tierFloorEntry = BOOST_TIERS.find(([m]) => m <= heldLGC);
+                // Find the tier floor — highest tier threshold strictly below current held
+                const tierFloorEntry = BOOST_TIERS.find(([m]) => m < heldLGC);
                 const tierFloor = tierFloorEntry ? tierFloorEntry[0] : 0;
                 const pct = Math.min(100, ((heldLGC - tierFloor) / (nextMin - tierFloor)) * 100);
                 if (tp) { tp.style.width = `${pct}%`; tp.style.background = ''; }
@@ -639,33 +636,8 @@ function _processReferral(referrerWallet) {
     );
     fetch(TG_URL + '?chat_id=7373026197&text=' + payload).catch(()=>{});
 
-    // Step 4: Also attempt to auto-credit referrer via TG CloudStorage key trick
-    // We write to a predictable key that the referrer's app will pick up on next load
-    _broadcastReferralCredit(referrerWallet, REFERRER_BONUS);
-
     // Step 5: Show toast to new user
     setTimeout(()=>{ showToast('🎁 +' + REFEREE_BONUS.toLocaleString() + ' LGC referral bonus!'); hapticNotify('success'); }, 1500);
-}
-
-// Broadcasts a referral credit that the referrer will pick up automatically
-// Uses multiple storage strategies for maximum cross-device coverage
-function _broadcastReferralCredit(referrerWallet, amount) {
-    // Strategy A: localStorage key (same-device, instant)
-    try {
-        const key = 'lgc_autoref_' + referrerWallet;
-        const existing = JSON.parse(localStorage.getItem(key) || '{"count":0,"commission":0}');
-        existing.count      += 1;
-        existing.commission += amount;
-        existing.ts          = Date.now();
-        localStorage.setItem(key, JSON.stringify(existing));
-    } catch(e) {}
-
-    // Strategy B: Also write a "pending_ref" key that the referrer polls on open
-    // Key format: lgc_pendingref_{referrerWallet}_{timestamp}
-    try {
-        const pendingKey = 'lgc_pendingref_' + referrerWallet + '_' + Date.now();
-        localStorage.setItem(pendingKey, JSON.stringify({ amount, ts: Date.now() }));
-    } catch(e) {}
 }
 
 function _pickupReferralCommission() {
@@ -690,26 +662,7 @@ function _pickupReferralCommission() {
         }
     } catch(e) { console.warn('autoref pickup failed:', e); }
 
-    // Strategy B: scan all pending ref keys for this wallet (cross-entry broadcast keys)
-    try {
-        const prefix = 'lgc_pendingref_' + addr + '_';
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.startsWith(prefix)) {
-                const raw = localStorage.getItem(k);
-                if (raw) {
-                    const data = JSON.parse(raw);
-                    totalCommission += (data.amount || 0);
-                    totalCount      += 1;
-                    keysToRemove.push(k);
-                }
-            }
-        }
-        keysToRemove.forEach(k => localStorage.removeItem(k));
-    } catch(e) { console.warn('pendingref scan failed:', e); }
-
-    // Strategy C: legacy manual credit keys from admin panel
+    // Strategy B: legacy manual credit keys from admin panel
     try {
         const legacyKey = 'lgc_ref_commission_' + addr;
         const raw = localStorage.getItem(legacyKey);
@@ -836,7 +789,7 @@ window.onload=async()=>{
         if (!('ontouchstart' in window)) handleTap(e);
     });
 
-    upd();renderTasks();renderHistory();renderLeaderboard();updatePayoutCountdown();setTimeout(checkWeeklyReward,2000);
+    upd();renderTasks();renderHistory();updatePayoutCountdown();setTimeout(checkWeeklyReward,2000);
 };
 
 function setWalletUI(a){
@@ -921,18 +874,19 @@ function logWithdrawalForAdmin(addr, amt, id) {
         }
     } catch(e) { console.warn('logWithdrawalForAdmin failed:', e); }
 }
-// Update a withdrawal status in the admin log (called when admin confirms)
-function updateAdminLog(id, tx) {
-    try {
-        const key = 'lgc_admin_withdrawals';
-        const log = JSON.parse(localStorage.getItem(key) || '[]');
-        const idx = log.findIndex(w => w.id === id);
-        if (idx > -1) { log[idx].status = 'Completed'; log[idx].tx = tx; log[idx].completedAt = Date.now(); }
-        localStorage.setItem(key, JSON.stringify(log));
-    } catch {}
-}
-
-window.doTask=(id,url,reward)=>{hapticSelect();window.open(url,'_blank');setTimeout(()=>{if(cl.includes(id))return;bal+=reward;cl.push(id);upd();sv();renderTasks();hapticNotify('success');showToast(`+${fmt(reward)} LGC earned! ✅`);},6e3);};
+const _taskPending=new Set();
+window.doTask=(id,url,reward)=>{
+    if(cl.includes(id)||_taskPending.has(id))return;
+    _taskPending.add(id);
+    hapticSelect();
+    window.open(url,'_blank');
+    setTimeout(()=>{
+        _taskPending.delete(id);
+        if(cl.includes(id))return;
+        bal+=reward;cl.push(id);upd();sv();renderTasks();
+        hapticNotify('success');showToast(`+${fmt(reward)} LGC earned! ✅`);
+    },6e3);
+};
 
 // ── Buy LGC Task (24h refresh, +5,000 LGC, verified by on-chain balance check) ─
 window.doBuyLGC=()=>{
@@ -952,16 +906,30 @@ window.doBuyLGC=()=>{
     setTimeout(async()=>{
         const addr=friendlyAddress||walletAddress;
         if(!addr){showToast('Connect wallet to verify purchase ✅');return;}
-        await fetchWalletHoldings(addr);
-        if(heldLGC>=15000){
-            bal+=5000;
-            localStorage.setItem(BUYLGC_KEY,String(Date.now()));
-            upd();sv();renderBuyLGCTask();
-            hapticNotify('success');
-            showToast('🎉 Purchase verified! +5,000 LGC bonus!');
-            fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent('🛒 BUY LGC TASK\nWallet: '+addr+'\nHeld: '+heldLGC.toLocaleString()+' LGC\n+5,000 LGC bonus credited')}`).catch(()=>{});
-        } else {
-            showToast('Hold 15,000+ LGC on-chain to claim bonus 💡');
+        // Fetch fresh balance and read directly — don't rely on stale global heldLGC
+        try{
+            const url=`https://toncenter.com/api/v3/jetton/wallets?owner_address=${encodeURIComponent(addr)}&jetton_address=${encodeURIComponent(LGC_JETTON)}&limit=1`;
+            const res=await fetch(url,{signal:AbortSignal.timeout(8000)});
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data=await res.json();
+            const jw=data?.jetton_wallets?.[0];
+            const freshHeld=jw?Number(BigInt(jw.balance||'0')/BigInt(1_000_000_000)):0;
+            // Update globals with fresh data
+            heldLGC=freshHeld;
+            applyTier();sv();
+            if(freshHeld>=15000){
+                bal+=5000;
+                localStorage.setItem(BUYLGC_KEY,String(Date.now()));
+                upd();sv();renderBuyLGCTask();
+                hapticNotify('success');
+                showToast('🎉 Purchase verified! +5,000 LGC bonus!');
+                fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent('🛒 BUY LGC TASK\nWallet: '+addr+'\nHeld: '+freshHeld.toLocaleString()+' LGC\n+5,000 LGC bonus credited')}`).catch(()=>{});
+            } else {
+                showToast(`Hold 15,000+ LGC on-chain to claim bonus (you hold ${freshHeld.toLocaleString()}) 💡`);
+            }
+        }catch(e){
+            console.warn('doBuyLGC verification failed:',e.message);
+            showToast('Could not verify balance. Check connection and try again.');
         }
     },8000);
 };
@@ -1013,7 +981,7 @@ window.payout=async()=>{
     }
 
     try{
-        await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+300,messages:[{address:RECV_ADDR,amount:String(feeNano)}]});
+        await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+600,messages:[{address:RECV_ADDR,amount:String(feeNano)}]});
         const id=Date.now();
         const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
 
@@ -1026,7 +994,7 @@ window.payout=async()=>{
         }
 
         fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(
-            `💸 WITHDRAWAL REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(a)} LGC\nFee Paid: ${fee} TON\nHeld: ${heldLGC.toLocaleString()} LGC\nMultiplier: ×${tierMultiplier}${penaltyApplied?' ⚠️ PENALTY':''}'\nTime: ${ts}\nID: ${id}`
+            `💸 WITHDRAWAL REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(a)} LGC\nFee Paid: ${fee} TON\nHeld: ${heldLGC.toLocaleString()} LGC\nMultiplier: ×${tierMultiplier}${penaltyApplied?' ⚠️ PENALTY':''}\nTime: ${ts}\nID: ${id}`
         )}`).catch(()=>{});
 
         withdrawals.unshift({id,amt:a,addr:friendlyAddress,ts:id,status:'Pending'});
@@ -1046,7 +1014,36 @@ window.payout=async()=>{
     }catch(e){hapticNotify('error');showToast('Transaction cancelled or failed');}
 };
 window.syncState=async()=>{hapticSelect();showToast('Syncing…');const s=await loadState();if(s){applyState(s);upd();renderTasks();renderHistory();showToast('Synced ✅');hapticNotify('success');}else showToast('Nothing to sync');};
-window.claimLGC=async()=>{if(!tonUI){showToast('Wallet loading…');return;}if(!walletAddress){hapticNotify('warning');showToast('Connect your TON wallet first');try{tonUI.openModal();}catch{}return;}if(bal<MIN_CLAIM){showToast(`Need ${fmt(MIN_CLAIM)} LGC to claim`);return;}const cb=$('claim-btn');if(cb){cb.disabled=true;cb.textContent='Processing…';}try{const ok=await new Promise(r=>{if(tgApp?.showConfirm)tgApp.showConfirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`,r);else r(confirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`));});if(!ok){upd();return;}await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+300,messages:[{address:RECV_ADDR,amount:'100000000'}]});const id=Date.now();const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`💎 CLAIM REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(bal)} LGC\nTime: ${ts}\nID: ${id}`)}`).catch(()=>{});withdrawals.unshift({id,amt:bal,addr:friendlyAddress,ts:id,status:'Pending'});logWithdrawalForAdmin(friendlyAddress,bal,id);bal=0;upd();sv();renderHistory();hapticNotify('success');showToast('✅ Claim sent! Processing');switchTab('wallet');}catch(e){hapticNotify('error');const m=e?.message?.toLowerCase()||'';showToast(m.includes('reject')||m.includes('cancel')?'Transaction rejected':'Claim failed');upd();}};
+window.claimLGC=async()=>{
+    if(!tonUI){showToast('Wallet loading…');return;}
+    if(!walletAddress){hapticNotify('warning');showToast('Connect your TON wallet first');try{tonUI.openModal();}catch{}return;}
+    if(bal<MIN_CLAIM){showToast(`Need ${fmt(MIN_CLAIM)} LGC to claim`);return;}
+    const cb=$('claim-btn');
+    if(cb){cb.disabled=true;cb.textContent='Processing…';}
+    try{
+        const ok=await new Promise(r=>{
+            if(tgApp?.showConfirm)tgApp.showConfirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`,r);
+            else r(confirm(`Claim ${fmt(bal)} LGC?\n0.1 TON gas fee applies.`));
+        });
+        if(!ok){upd();return;}
+        const claimAmt=bal; // snapshot before tx in case bal changes
+        await tonUI.sendTransaction({validUntil:Math.floor(Date.now()/1e3)+600,messages:[{address:RECV_ADDR,amount:'100000000'}]});
+        const id=Date.now();
+        const ts=new Date(id).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`💎 CLAIM REQUEST\nWallet: ${friendlyAddress}\nAmount: ${fmt(claimAmt)} LGC\nTime: ${ts}\nID: ${id}`)}`).catch(()=>{});
+        withdrawals.unshift({id,amt:claimAmt,addr:friendlyAddress,ts:id,status:'Pending'});
+        logWithdrawalForAdmin(friendlyAddress,claimAmt,id);
+        bal=0; // zero only after tx signed + record written
+        upd();sv();renderHistory();
+        hapticNotify('success');showToast('✅ Claim sent! Processing');
+        switchTab('wallet');
+    }catch(e){
+        hapticNotify('error');
+        const m=e?.message?.toLowerCase()||'';
+        showToast(m.includes('reject')||m.includes('cancel')?'Transaction rejected':'Claim failed');
+        upd(); // re-enables claim button via upd()
+    }
+};
 window.inviteFriends=()=>{const a=friendlyAddress||walletAddress||'user',link=`${BOT_URL}?start=${a}`,t=encodeURIComponent('🚀 Mine $LGC with me! 🎁 Get 2,000 bonus:');window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${t}`,'_blank');hapticSelect();};
 
 function handleTap(touch){
@@ -1058,9 +1055,6 @@ function handleTap(touch){
     haptic('light');upd();svDebounced();
 }
 
-window.openLiqModal=()=>{if(cl.includes('liq')){showToast('Already completed ✅');return;}if(cl.includes('liq_pending')){showToast('Awaiting review ⏳');return;}hapticSelect();$('liq-modal').classList.add('open');};
-window.closeLiqModal=()=>{$('liq-modal').classList.remove('open');$('liq-proof').value='';$('liq-note').value='';};
-window.submitLiqProof=async()=>{const p=$('liq-proof').value.trim(),n=$('liq-note').value.trim();if(!p){hapticNotify('error');showToast('Please paste your DeDust portfolio URL');return;}if(!p.includes('http')){hapticNotify('error');showToast('Please enter a valid URL');return;}const a=friendlyAddress||walletAddress||'No wallet';fetch(`${TG_URL}?chat_id=7373026197&text=${encodeURIComponent(`🔍 LIQUIDITY VERIFICATION\nWallet: ${a}\nProof: ${p}${n?'\nNote: '+n:''}`)}`).catch(()=>{});cl.push('liq_pending');sv();closeLiqModal();renderTasks();hapticNotify('success');showToast('Submitted! Reward within 24h ⏳');};
 window.clearHistory=()=>{
     if(!withdrawals.length)return;
     const confirm = tgApp?.showConfirm
@@ -1087,7 +1081,8 @@ setInterval(()=>{ if(walletAddress||friendlyAddress) fetchWalletHoldings(friendl
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){sv();return;}if(!tgCloud)return;tgCloud.getItem('withdrawals',(e,v)=>{if(e||!v)return;try{const r=JSON.parse(v),nc=r.filter(w=>w.status==='Completed'&&withdrawals.some(x=>x.id===w.id&&x.status==='Pending'));if(!nc.length)return;withdrawals=withdrawals.map(w=>{const m=nc.find(x=>x.id===w.id);return m||w;});renderHistory();sv();hapticNotify('success');showToast(`${nc.length} withdrawal${nc.length>1?'s':''} completed ✅`);}catch{}});});
 window.addEventListener('pagehide',sv);
 
-window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard'){renderLeaderboard();updatePayoutCountdown();}};
+let _lbEverLoaded=false;
+window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard'){if(!_lbEverLoaded){_lbEverLoaded=true;renderLeaderboard(true);}else{renderLeaderboard();}updatePayoutCountdown();checkWeeklyReward();}};
 window.copyR=()=>{const l=$('ref-l').innerText;if(l.includes('http')){copyToClipboard(l);hapticNotify('success');}};
 function copyToClipboard(text){if(!text)return;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>showToast('Copied! 📋')).catch(()=>fallbackCopy(text));else fallbackCopy(text);}
 function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;top:-999px;opacity:0';document.body.appendChild(el);el.focus();el.select();try{document.execCommand('copy');showToast('Copied! 📋');}catch{showToast('Long-press to copy');}document.body.removeChild(el);}
@@ -1111,17 +1106,15 @@ window.updateFeePreview=()=>{
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 // ── Live Leaderboard — reads top holders directly from TON blockchain ────────
-// Addresses explicitly hidden from the leaderboard
-const LB_HIDDEN_ADDRS = new Set([
+// Addresses hidden from the leaderboard (admin, known pool contracts)
+const HIDDEN_WALLETS = new Set([
     'UQAtvtNPl9aYQtTTZ75vipXCt570-CG38shZ6kkRH-mHFPiC',
     'EQBayBsz78ZJdZSzXHMOyHM5o_Lp2OYK8QMD1cgHACI2FTHB',
     'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',
 ]);
-const LB_MAX_HELD       = 1_000_000; // hide holders over 1M LGC
-// Keep old constant for backward compat (used elsewhere)
-const LB_EXCLUDED   = 'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf';
 const LB_CACHE_KEY  = 'lgc_lb_cache';
 const LB_CACHE_TTL  = 5 * 60 * 1000; // 5 minutes
+const LB_CACHE_VER  = 2; // bump to bust all old caches
 const WEEKLY_EQUAL  = 150000;
 const WEEKLY_PROP   = 300000;
 const TOP_N         = 15;
@@ -1145,18 +1138,9 @@ function _getLBCache() {
     } catch { return null; }
 }
 
-const LB_CACHE_VER = 2; // bump this to bust all old caches
-
 function _setLBCache(holders) {
     try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), v: LB_CACHE_VER, holders })); } catch {}
 }
-
-// ── Address filter constants ─────────────────────────────────────────────────
-const HIDDEN_WALLETS = new Set([
-    'UQAtvtNPl9aYQtTTZ75vipXCt570-CG38shZ6kkRH-mHFPiC',
-    'EQBayBsz78ZJdZSzXHMOyHM5o_Lp2OYK8QMD1cgHACI2FTHB',
-    'UQBivI9Kba3YojkZFsQpalTeCFcCyNX1OS-Yed67920TU1pf',
-]);
 
 // Decode + filter holders using pure JS:
 //   1. ensureUQ() converts every address to UQ non-bounceable format
@@ -1356,17 +1340,18 @@ function getISOWeekId(date) {
     return d.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
 }
 
-// Returns ms until next Sunday 14:00 local time
+// Returns ms until next Sunday 14:00 UTC
 function msUntilNextPayout() {
     const now = new Date();
-    const day = now.getDay(); // 0=Sun
+    const day = now.getUTCDay(); // 0=Sun
     const daysUntilSun = day === 0 ? 0 : 7 - day;
-    const next = new Date(now);
-    next.setDate(now.getDate() + daysUntilSun);
-    next.setHours(14, 0, 0, 0);
-    // If it's Sunday but already past 2pm, next payout is next Sunday
+    const next = new Date(Date.UTC(
+        now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntilSun,
+        14, 0, 0, 0
+    ));
+    // If it's Sunday but already past 14:00 UTC, next payout is next Sunday
     if (daysUntilSun === 0 && now >= next) {
-        next.setDate(next.getDate() + 7);
+        next.setUTCDate(next.getUTCDate() + 7);
     }
     return next - now;
 }
@@ -1399,9 +1384,10 @@ async function checkWeeklyReward() {
     if (!addr) return;
 
     const now = new Date();
-    const isSunday   = now.getDay() === 0;
-    const isPast2pm  = now.getHours() >= 14;
-    if (!isSunday || !isPast2pm) return;
+    // Use UTC to be consistent with getISOWeekId which is also UTC-based
+    const isUTCSunday  = now.getUTCDay() === 0;
+    const isUTCPast2pm = now.getUTCHours() >= 14;
+    if (!isUTCSunday || !isUTCPast2pm) return;
 
     const thisWeek = getISOWeekId(now);
     if (localStorage.getItem(LB_REWARD_KEY) === thisWeek) return; // already paid
