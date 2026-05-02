@@ -248,7 +248,7 @@
     </main>
 
     <nav class="fixed bottom-0 left-0 right-0 h-20 glass flex justify-around items-center z-50">
-        <button onclick="switchTab('miner')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1 active"><i class="fa-solid fa-pickaxe text-sm"></i><span class="text-[9px] font-black">MINER</span></button>
+        <button onclick="switchTab('miner')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1 active"><i class="fa-solid fa-hammer text-sm"></i><span class="text-[9px] font-black">MINER</span></button>
         <button onclick="switchTab('tasks')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-list-check text-sm"></i><span class="text-[9px] font-black">TASKS</span></button>
         <button onclick="switchTab('friends')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-users text-sm"></i><span class="text-[9px] font-black">FRIENDS</span></button>
         <button onclick="switchTab('wallet')" class="nav-link flex flex-1 flex-col items-center gap-1 pt-1"><i class="fa-solid fa-wallet text-sm"></i><span class="text-[9px] font-black">WALLET</span></button>
@@ -1134,14 +1134,21 @@ function _getLBCache() {
     try {
         const raw = localStorage.getItem(LB_CACHE_KEY);
         if (!raw) return null;
-        const { ts, holders } = JSON.parse(raw);
-        if (Date.now() - ts > LB_CACHE_TTL) return null;
-        return holders;
+        const parsed = JSON.parse(raw);
+        // Bust caches from old versions or that contain un-decoded raw addresses
+        if (parsed.v !== LB_CACHE_VER) { localStorage.removeItem(LB_CACHE_KEY); return null; }
+        if (Date.now() - parsed.ts > LB_CACHE_TTL) return null;
+        // Extra guard: if any address is still raw (0:hex format), discard and re-fetch
+        const hasRaw = (parsed.holders || []).some(h => h.addr && h.addr.includes(':'));
+        if (hasRaw) { localStorage.removeItem(LB_CACHE_KEY); return null; }
+        return parsed.holders;
     } catch { return null; }
 }
 
+const LB_CACHE_VER = 2; // bump this to bust all old caches
+
 function _setLBCache(holders) {
-    try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), holders })); } catch {}
+    try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), v: LB_CACHE_VER, holders })); } catch {}
 }
 
 // ── Address filter constants ─────────────────────────────────────────────────
@@ -1277,8 +1284,10 @@ async function renderLeaderboard(forceRefresh = false) {
         const medal       = rank <= 3 ? medals[rank - 1] : '#' + rank;
         const propShare   = totalTop15 > 0 ? Math.floor((h.held / totalTop15) * WEEKLY_PROP) : 0;
         const totalReward = EQUAL_EACH + propShare;
-        const isMe        = myAddr && h.addr === myAddr;
-        const short       = h.addr.length > 10 ? h.addr.slice(0,6) + '…' + h.addr.slice(-4) : h.addr;
+        // Always ensure UQ format at display time — final safety net against stale cache
+        const displayAddr = ensureUQ(h.addr);
+        const isMe        = myAddr && (displayAddr === myAddr || h.addr === myAddr);
+        const short       = displayAddr.length > 10 ? displayAddr.slice(0,6) + '…' + displayAddr.slice(-4) : displayAddr;
         return '<div class="glass p-3 rounded-2xl flex items-center gap-3' + (isMe ? ' border border-[#FFD700]/30' : '') + '">'
             + '<div class="text-lg w-8 text-center shrink-0">' + medal + '</div>'
             + '<div class="flex-1 min-w-0">'
