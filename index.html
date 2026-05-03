@@ -431,7 +431,7 @@ async function _pollBotConfirmations(addr){
     const seenKey='lgc_conf_seen_'+addr;
     let seen;try{seen=new Set(JSON.parse(localStorage.getItem(seenKey)||'[]'));}catch{seen=new Set();}
     try{
-        const res=await fetch(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`,{signal:AbortSignal.timeout(8000)});
+        const res=await fetchWithTimeout(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`,8000);
         if(!res.ok)return;
         const data=await res.json();
         if(!data.ok||!data.result)return;
@@ -503,19 +503,24 @@ function ensureUQ(addr){
     try{ return rawToFriendly('0:'+addr); }catch{ return addr; }
 }
 
-// Fetch LGC balance held in the connected wallet via TonCenter API
+// Safe timeout fetch — uses Promise.race instead of AbortController/AbortSignal
+// AbortSignal cannot be cloned across certain iframe/postMessage boundaries (TG WebView quirk)
+function fetchWithTimeout(url, ms=10000, opts={}) {
+    return Promise.race([
+        fetch(url, opts),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), ms))
+    ]);
+}
 async function fetchWalletHoldings(addr) {
     if (!addr) return;
     try {
         const url = `https://toncenter.com/api/v3/jetton/wallets?owner_address=${encodeURIComponent(addr)}&jetton_address=${encodeURIComponent(LGC_JETTON)}&limit=1`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const res = await fetchWithTimeout(url, 8000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const jw = data?.jetton_wallets?.[0];
-        // LGC has 9 decimals
         heldLGC = jw ? Number(BigInt(jw.balance || '0') / BigInt(1_000_000_000)) : 0;
 
-        // If user now holds ≥ MIN_HOLD_AFTER_WD, clear their penalty
         if (penaltyCount > 0 && heldLGC >= MIN_HOLD_AFTER_WD) {
             penaltyCount = 0;
             setTimeout(()=>{ showToast('✅ Penalty cleared! Multiplier restored.'); hapticNotify('success'); }, 500);
@@ -524,7 +529,6 @@ async function fetchWalletHoldings(addr) {
         sv();
     } catch(e) {
         console.warn('fetchWalletHoldings failed:', e.message);
-        // Keep last known heldLGC — don't penalise on network failure
     }
 }
 
@@ -703,7 +707,7 @@ async function _pollBotReferralCredits(addr) {
     const ackKey = 'lgc_ref_acked_' + addr;
     let acked; try { acked = new Set(JSON.parse(localStorage.getItem(ackKey) || '[]')); } catch { acked = new Set(); }
     try {
-        const res = await fetch(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetchWithTimeout(`https://api.telegram.org/bot8788748146:AAFA9sVSKAF165LbjNfupIxtABDjMDv8Bso/getUpdates?limit=100&allowed_updates=["message"]`, 8000);
         if (!res.ok) return;
         const data = await res.json();
         if (!data.ok || !data.result) return;
@@ -937,7 +941,7 @@ window.doBuyLGC=()=>{
         // Fetch fresh balance and read directly — don't rely on stale global heldLGC
         try{
             const url=`https://toncenter.com/api/v3/jetton/wallets?owner_address=${encodeURIComponent(addr)}&jetton_address=${encodeURIComponent(LGC_JETTON)}&limit=1`;
-            const res=await fetch(url,{signal:AbortSignal.timeout(8000)});
+            let res;try{res=await fetchWithTimeout(url,8000);}catch(te){throw te;}
             if(!res.ok) throw new Error(`HTTP ${res.status}`);
             const data=await res.json();
             const jw=data?.jetton_wallets?.[0];
@@ -1119,7 +1123,7 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('pagehide',sv);
 
 let _lbEverLoaded=false;
-window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard'){if(!_lbEverLoaded){_lbEverLoaded=true;renderLeaderboard(true);}else{renderLeaderboard();}updatePayoutCountdown();checkWeeklyReward();}};
+window.switchTab=(id)=>{hapticSelect();TABS.forEach(t=>{const el=$('tab-'+t);if(el){el.classList.toggle('hidden',t!==id);if(t===id)el.scrollTop=0;}});document.querySelectorAll('.nav-link').forEach((b,i)=>b.classList.toggle('active',TABS[i]===id));if(id==='leaderboard'){renderLeaderboard(!_lbEverLoaded);_lbEverLoaded=true;updatePayoutCountdown();checkWeeklyReward();}};
 window.copyR=()=>{const l=$('ref-l').innerText;if(l.includes('http')){copyToClipboard(l);hapticNotify('success');}};
 function copyToClipboard(text){if(!text)return;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>showToast('Copied! 📋')).catch(()=>fallbackCopy(text));else fallbackCopy(text);}
 function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;top:-999px;opacity:0';document.body.appendChild(el);el.focus();el.select();try{document.execCommand('copy');showToast('Copied! 📋');}catch{showToast('Long-press to copy');}document.body.removeChild(el);}
@@ -1199,18 +1203,36 @@ function decodeAndFilterHolders(rawHolders) {
 // Fetches top holders from TonCenter, decodes all addresses to UQ,
 // filters out EQ contracts + hidden wallets + whales, returns top 15
 async function fetchLiveHolders() {
+    // TonCenter v3 requires the jetton address in raw "0:hex" format.
+    // EQBcICgWV92L... → decode from base64url → extract 32-byte hash → "0:hexhash"
+    function toRawAddress(friendly) {
+        try {
+            const b64 = friendly.replace(/-/g, '+').replace(/_/g, '/');
+            const bin = atob(b64);
+            if (bin.length !== 36) return null;
+            let hex = '';
+            for (let i = 2; i < 34; i++) hex += bin.charCodeAt(i).toString(16).padStart(2, '0');
+            return '0:' + hex;
+        } catch { return null; }
+    }
+
+    const rawJetton = toRawAddress(LGC_JETTON);
+    if (!rawJetton) throw new Error('Could not decode LGC_JETTON address');
+
     // Fetch top 50 — gives plenty of room after filtering EQ/hidden addresses
     const url = 'https://toncenter.com/api/v3/jetton/wallets'
-        + '?jetton_address=' + encodeURIComponent(LGC_JETTON)
+        + '?jetton_address=' + encodeURIComponent(rawJetton)
         + '&limit=50&sort_by=balance&sort_order=desc';
 
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const res = await fetchWithTimeout(url, 10000);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
 
     const wallets = data?.jetton_wallets || [];
+    if (!wallets.length) throw new Error('Empty response — check jetton address');
+
     const rawHolders = wallets.map(w => ({
-        addr: w.owner || w.owner_address || '?',
+        addr: w.owner_address || w.owner || '?',
         held: w.balance ? Number(BigInt(w.balance) / BigInt(1_000_000_000)) : 0
     }));
 
@@ -1264,7 +1286,8 @@ async function renderLeaderboard(forceRefresh = false) {
                 list.innerHTML = '<div class="glass p-6 rounded-2xl text-center text-white/30 text-xs">'
                     + '<i class="fa-solid fa-triangle-exclamation text-2xl mb-2 block opacity-40"></i>'
                     + 'Could not load leaderboard.<br>'
-                    + '<span class="text-[10px]">Check your connection and try again.</span></div>';
+                    + '<span class="text-[10px] text-red-400/60">' + (err.message || 'Unknown error') + '</span><br>'
+                    + '<span class="text-[10px]">Check connection and tap Refresh.</span></div>';
                 _lbFetching = false;
                 return;
             }
