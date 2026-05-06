@@ -308,8 +308,8 @@ const MIN_WITHDRAW = 1000;
 
 // A: Specific banned wallets — addr → required LGC to hold for 24h
 const SANCTIONED_WALLETS = {
-    'UQC36rsUx_Tk8QQiZYI6Q6i9Eij-i-DUzwHyBlo1Oi_B9CPu': 750_000,
-    'UQDZzv2rVKXpMc0483wLizjUxqVt2egVxLaqmNi9b9g-8kNq':  300_000,
+    'UQC36rsUx_Tk8QQiZYI6Q6i9Eij-i-DUzwHyBlo1Oi_B9CPu': 480_000,
+    'UQDZzv2rVKXpMc0483wLizjUxqVt2egVxLaqmNi9b9g-8kNq':  200_000,
 };
 const SPECIFIC_BAN_FEE_MULT    = 3.5;
 const SPECIFIC_BAN_HOLD_PERIOD = 24 * 60 * 60 * 1000; // 24h in ms
@@ -325,15 +325,28 @@ const DROP_REVOKE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24h probation
 const POST_WD_MIN_HOLD = 1000; // < 1k LGC after any withdrawal → 0.1x
 
 // ── 72h balance snapshot helpers ─────────────────────────────────────────────
-// Records the current balance and prunes entries older than 72h
+// Records one snapshot per hour max — prevents localStorage bloat from frequent
+// wallet checks. Prunes entries older than 72h. Hard cap of 80 entries.
 function recordBalanceSnapshot(held) {
-    const cutoff = Date.now() - DROP_WINDOW_MS;
+    const now    = Date.now();
+    const cutoff = now - DROP_WINDOW_MS;
+    const HOUR   = 3_600_000;
+    // Prune expired entries
     balanceSnapshots = balanceSnapshots.filter(s => s.ts >= cutoff);
-    balanceSnapshots.push({ ts: Date.now(), held });
+    // Only add a new entry if the last one is ≥ 1 hour old (or there are none)
+    const last = balanceSnapshots[balanceSnapshots.length - 1];
+    if (!last || (now - last.ts) >= HOUR) {
+        balanceSnapshots.push({ ts: now, held });
+        // Safety cap — should never be needed given the 72h prune, but guard anyway
+        if (balanceSnapshots.length > 80) balanceSnapshots = balanceSnapshots.slice(-80);
+    } else {
+        // Within the same hour — update the latest entry to the newest reading
+        // so the peak always reflects the most recent balance within each hour slot
+        last.held = Math.max(last.held, held);
+    }
 }
 
 // Returns the highest balance recorded in the last 72h (or 0 if no history).
-// recordBalanceSnapshot() already prunes stale entries, so no re-filter needed here.
 function get72hPeak() {
     return balanceSnapshots.length ? Math.max(...balanceSnapshots.map(s => s.held)) : 0;
 }
@@ -386,7 +399,6 @@ function checkDropSanctions(newHeld) {
 
     // Escalation — sanctions can worsen but only lift via probation
     if (newLevel > dropSanctionLevel) {
-        const prev = dropSanctionLevel;
         dropSanctionLevel = newLevel;
         dropRevokeSince = 0; // reset any running probation clock
         if (newLevel === 1) {
@@ -484,29 +496,28 @@ function _nextTierThreshold(held) {
 }
 
 // Compute effective multiplier — precedence (highest wins, applied once):
-//   1. Repeat offender with < 1k LGC on-chain (penaltyCount > 0) → hard 0.1x
-//   2. Existing penalty steps (insufficient hold after withdrawal)  → 0.5/0.25/0.1
-//   3. Heavy drop sanction (50%+)                                   → base ÷ 10
-//   4. Light drop sanction (25%)                                    → base ÷ 2
-//   5. Normal holder tier                                           → base
+//   1. Post-withdrawal floor: has ever withdrawn + holds < 1k LGC → hard 0.1x
+//   2. Penalty steps: penaltyCount > 0 + holds < 5k LGC          → 0.5 / 0.25 / 0.1
+//   3. Heavy drop sanction (50%+)                                  → base ÷ 10
+//   4. Light drop sanction (25%)                                   → base ÷ 2
+//   5. Normal holder tier                                          → base rate
 function calcEffectiveMultiplier(held, penaltyCount) {
-    // Rule C: repeated offender with < 1k LGC on-chain → hard 0.1x floor
-    // Uses penaltyCount (not withdrawals.length) so only repeat under-holders are hit,
-    // not every user who has ever made a legitimate withdrawal.
-    if (penaltyCount > 0 && held < POST_WD_MIN_HOLD) return 0.1;
+    // Rule 1: any wallet that has ever made a withdrawal AND holds < 1k LGC → 0.1x
+    // This fires on the FIRST dump below 1k, not just for repeat offenders.
+    if (withdrawals.length > 0 && held < POST_WD_MIN_HOLD) return 0.1;
 
-    // Rule 2: existing withdrawal penalty steps (holds < 5k after withdrawing)
+    // Rule 2: penalty steps for users who hold < 5k LGC after withdrawing
     if (penaltyCount > 0 && held < MIN_HOLD_AFTER_WD) {
         const idx = Math.min(penaltyCount - 1, PENALTY_STEPS.length - 1);
         return PENALTY_STEPS[idx];
     }
 
-    // Base tier (no penalty)
+    // Base tier (no penalty active)
     const base = calcHolderMultiplier(held);
 
-    // Rule B: drop sanctions — applied on top of the holder tier
+    // Rules 3 & 4: drop sanctions scale the tier multiplier down
     if (dropSanctionLevel === 2) return Math.max(0.1, Math.round((base / 10) * 100) / 100);
-    if (dropSanctionLevel === 1) return Math.max(0.1, Math.round((base / 2) * 100) / 100);
+    if (dropSanctionLevel === 1) return Math.max(0.1, Math.round((base / 2)  * 100) / 100);
 
     return base;
 }
